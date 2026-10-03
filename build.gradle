@@ -35,3 +35,23 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
 }
+
+tasks.register('unitTest', Test) {
+    description = '스프링 컨텍스트와 DB 없이 도는 단위 테스트만 실행한다'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        excludeTags 'db-context'
+    }
+}
+
+tasks.register('dbContextTest', Test) {
+    description = '스프링 컨텍스트와 PostgreSQL 컨테이너가 필요한 테스트만 실행한다'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'db-context'
+    }
+}

@@ -20,9 +20,15 @@
 
 ### 테스트 실행
 
+모든 테스트를 돌리려면 Docker가 켜져 있어야 합니다. Docker가 없으면 DB를 쓰는 테스트는 건너뛰지 않고 실패합니다.
+
 ```bash
-./gradlew test
+./gradlew test            # 전체
+./gradlew unitTest        # Docker 없이 도는 단위 테스트만
+./gradlew dbContextTest   # PostgreSQL 컨테이너가 필요한 테스트만
 ```
+
+테스트 작성 규칙은 [테스트 가이드](docs/test-guide.md)에 있습니다.
 
 ### 애플리케이션 실행
 
