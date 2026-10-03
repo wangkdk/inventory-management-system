@@ -68,13 +68,12 @@ _Aggregate Root_
 
 - `productId`: `Long` 상품. 재고의 식별자이고, 상품 하나에 재고가 하나 있다
 - `quantity`: `int` 현재 재고 수량
-- `updatedAt`: `Instant` 마지막 변경 일시(UTC)
 
 #### 행위
 
 - `static create()`: 수량이 0인 재고를 만든다: `productId`
-- `inbound()`: 재고 수량을 늘리고 변경 일시를 기록한다: `quantity`
-- `outbound()`: 재고 수량을 줄이고 변경 일시를 기록한다: `quantity`
+- `inbound()`: 재고 수량을 늘린다: `quantity`
+- `outbound()`: 재고 수량을 줄인다: `quantity`
 
 #### 규칙
 
@@ -90,6 +89,15 @@ _Aggregate Root_
 _Exception_
 
 - 재고보다 많이 출고하려 할 때 던진다. 남은 수량과 요청 수량을 담는다
+
+### 재고 현황 (StockStatus)
+
+_Value Object_
+
+#### 속성
+
+- `product`: `Product` 상품
+- `stock`: `ProductStock` 그 상품의 현재 재고
 
 ### [입출고 기록 애그리거트]
 
@@ -144,4 +152,5 @@ _Enum_
 
 ### 재고 조회
 
-- 상품의 현재 재고 수량을 조회한다. 상품이 없으면 `ProductNotFoundException`을 던진다
+- 상품의 현재 재고 수량을 id나 SKU로 조회한다. 상품이 없으면 `ProductNotFoundException`을 던진다
+- SKU로 조회할 때도 등록할 때와 같은 규칙으로 앞뒤 공백을 제거한다
