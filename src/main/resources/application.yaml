@@ -3,6 +3,9 @@ spring:
     name: inventory-management-system
   profiles:
     default: local
+  sql:
+    init:
+      mode: never
   jpa:
     open-in-view: false
     hibernate:
@@ -20,3 +23,6 @@ spring:
     url: jdbc:postgresql://localhost:5432/inventory
     username: inventory
     password: inventory
+  sql:
+    init:
+      mode: always
