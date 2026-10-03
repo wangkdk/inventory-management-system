@@ -1,0 +1,11 @@
+### 상품과 현재 재고 조회 (id)
+GET http://localhost:8080/api/v1/products/1
+
+### 상품과 현재 재고 조회 (SKU)
+GET http://localhost:8080/api/v1/products?sku=SKU-001
+
+### 없는 상품 → 404 PRODUCT_NOT_FOUND
+GET http://localhost:8080/api/v1/products/999999
+
+### SKU가 비어 있음 → 400 INVALID_REQUEST
+GET http://localhost:8080/api/v1/products?sku=

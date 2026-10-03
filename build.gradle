@@ -42,7 +42,17 @@ tasks.register('unitTest', Test) {
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath
     useJUnitPlatform {
-        excludeTags 'db-context'
+        excludeTags 'db-context', 'web-context'
+    }
+}
+
+tasks.register('webContextTest', Test) {
+    description = '스프링 MVC 슬라이스로 웹 계층만 띄우는 테스트만 실행한다'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'web-context'
     }
 }
 

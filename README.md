@@ -25,6 +25,7 @@
 ```bash
 ./gradlew test            # 전체
 ./gradlew unitTest        # Docker 없이 도는 단위 테스트만
+./gradlew webContextTest  # 웹 계층만 띄우는 컨트롤러 테스트만 (Docker 불필요)
 ./gradlew dbContextTest   # PostgreSQL 컨테이너가 필요한 테스트만
 ```
 

@@ -35,6 +35,53 @@ void registerStripsSku() {
 }
 ```
 
+## API 테스트 (`WebMvcTest`)
+
+컨트롤러와 에러 처리기만 띄우고, 서비스는 mock으로 바꿔서 웹 계층을 검증한다. Docker 없이 돈다.
+
+### 대상
+
+- 경로, 경로 변수, 쿼리 파라미터, 요청 본문이 서비스 호출로 바뀌는지
+- 응답 JSON의 모양과 상태 코드
+- 요청 값 검증(`@NotBlank`, `@Valid`)에 걸리면 400을 돌려주는지
+- 에러 응답의 상태, `code`, `title`. 스프링이 처리하는 오류(타입 불일치, 없는 경로, 지원하지 않는 메서드)도 포함한다
+
+### 작성 규칙
+
+- 테스트 클래스에 `@WebMvcTest(XxxController.class)`와 `@WebContextTest`를 함께 붙인다. `@WebContextTest`가 태그(`web-context`)를 건다
+- 서비스는 `@MockitoBean`으로 바꾸고, 시나리오에 필요한 반환값이나 예외만 `when(...)`으로 정한다
+- 요청과 검증은 `MockMvcTester`로 한다
+- 정상 응답은 응답 DTO로 바꿔 통째로 비교한다(`bodyJson().convertTo(...)`)
+- 에러 응답은 상태와 `code`로 검증한다. `title`을 검증할 때는 문자열을 적지 않고 `ErrorCode` 상수와 비교한다
+- 비즈니스 규칙과 DB 동작은 검증하지 않는다. 단위 테스트와 저장소 테스트가 맡는다
+- 이름, `@DisplayName`, 실행과 검증 사이 빈 줄 규칙은 단위 테스트와 같다
+
+### 예시
+
+```java
+@WebMvcTest(ProductController.class)
+@WebContextTest
+class ProductControllerTest {
+
+    @Autowired
+    private MockMvcTester mvc;
+
+    @MockitoBean
+    private InventoryService inventoryService;
+
+    @Test
+    @DisplayName("없는 상품을 id로 조회하면 404와 PRODUCT_NOT_FOUND를 돌려준다")
+    void getProductReturnsNotFound() {
+        when(inventoryService.getStock(999L)).thenThrow(ProductNotFoundException.byId(999L));
+
+        assertThat(mvc.get().uri("/api/v1/products/{productId}", 999L))
+                .hasStatus(HttpStatus.NOT_FOUND)
+                .bodyJson()
+                .extractingPath("$.code").isEqualTo("PRODUCT_NOT_FOUND");
+    }
+}
+```
+
 ## 저장소 테스트 (`DataJpaTest`)
 
 JPA에 필요한 빈만 띄우고, 실제 PostgreSQL 컨테이너로 검증한다. Docker가 있어야 돈다.
