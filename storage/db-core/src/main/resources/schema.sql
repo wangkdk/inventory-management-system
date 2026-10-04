@@ -34,10 +34,6 @@ CREATE TABLE IF NOT EXISTS product_stock_movement (
     updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- 상품별 기록 조회용
-CREATE INDEX IF NOT EXISTS idx_product_stock_movement_product
-    ON product_stock_movement (product_id, created_at);
-
 -- 요청 키 기록: 요청 키로 처리한 입고나 출고와 그 결과. 다시 보낼 수 있는 동안만 필요해서 입출고 기록과 따로 둔다
 CREATE TABLE IF NOT EXISTS idempotency_record (
     id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
