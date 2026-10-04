@@ -2,6 +2,7 @@ package inventory.api.controller.product;
 
 import inventory.api.controller.product.dto.ProductStockResponse;
 import inventory.domain.stock.InventoryService;
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,7 +25,7 @@ public class ProductController {
     }
 
     @GetMapping
-    public ProductStockResponse getProductBySku(@RequestParam String sku) {
+    public ProductStockResponse getProductBySku(@RequestParam @NotBlank String sku) {
         return ProductStockResponse.from(inventoryService.getStockBySku(sku));
     }
 }

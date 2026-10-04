@@ -19,6 +19,7 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @WebMvcTest(ProductController.class)
@@ -79,14 +80,24 @@ class ProductControllerTest {
     }
 
     @Test
-    @DisplayName("SKU가 비어 있으면 400과 INVALID_REQUEST를 돌려준다")
+    @DisplayName("SKU가 비어 있으면 서비스를 부르지 않고 400과 INVALID_REQUEST를 돌려준다")
     void getProductBySkuRejectsBlankSku() {
-        when(inventoryService.getStockBySku(" ")).thenThrow(IllegalArgumentException.class);
-
         assertThat(mvc.get().uri("/api/v1/products").param("sku", " "))
                 .hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyJson()
                 .extractingPath("$.code").isEqualTo("INVALID_REQUEST");
+        verifyNoInteractions(inventoryService);
+    }
+
+    @Test
+    @DisplayName("컨트롤러 검증을 통과한 요청에서 IllegalArgumentException이 나면 서버 버그로 보고 500과 INTERNAL_ERROR를 돌려준다")
+    void illegalArgumentReturnsInternalError() {
+        when(inventoryService.getStock(1L)).thenThrow(IllegalArgumentException.class);
+
+        assertThat(mvc.get().uri("/api/v1/products/{productId}", 1L))
+                .hasStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+                .bodyJson()
+                .extractingPath("$.code").isEqualTo("INTERNAL_ERROR");
     }
 
     @Test

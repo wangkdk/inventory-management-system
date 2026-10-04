@@ -49,12 +49,6 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problem;
     }
 
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ProblemDetail handleIllegalArgument(IllegalArgumentException e) {
-        log.debug("잘못된 요청: {}", e.getMessage());
-        return problem(ErrorCode.INVALID_REQUEST);
-    }
-
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleUnexpected(Exception e) {
         log.error("처리하지 못한 예외", e);
