@@ -12,6 +12,7 @@ import inventory.domain.stock.InventoryService;
 import inventory.domain.stock.OutboundItem;
 import inventory.domain.stock.ProductStock;
 import inventory.domain.stock.StockLimitExceededException;
+import inventory.domain.stock.StockLockTimeoutException;
 import inventory.domain.stock.StockStatus;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -185,6 +186,21 @@ class InventoryControllerTest {
                 .hasStatus(HttpStatus.NOT_FOUND)
                 .bodyJson()
                 .extractingPath("$.code").isEqualTo("PRODUCT_NOT_FOUND");
+    }
+
+    @Test
+    @DisplayName("재고 잠금을 기다리다 시간이 넘으면 503과 STOCK_LOCK_TIMEOUT을 돌려준다")
+    void outboundLockTimeoutReturnsServiceUnavailable() {
+        when(inventoryService.outbound(new OutboundItem("SKU-001", 1)))
+                .thenThrow(new StockLockTimeoutException(1L, null));
+
+        MvcTestResult result = outbound(new OutboundRequest("SKU-001", 1));
+
+        assertThat(result)
+                .hasStatus(HttpStatus.SERVICE_UNAVAILABLE)
+                .apply(document("error-stock-lock-timeout"))
+                .bodyJson()
+                .extractingPath("$.code").isEqualTo("STOCK_LOCK_TIMEOUT");
     }
 
     @ParameterizedTest

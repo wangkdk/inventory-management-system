@@ -3,6 +3,7 @@ package inventory.api.config.error;
 import inventory.domain.product.ProductNotFoundException;
 import inventory.domain.stock.InsufficientStockException;
 import inventory.domain.stock.StockLimitExceededException;
+import inventory.domain.stock.StockLockTimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -47,6 +48,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         problem.setProperty("requested", e.getRequested());
         problem.setProperty("limit", e.getLimit());
         return problem;
+    }
+
+    /**
+     * 롤백되어 아무것도 반영되지 않았으므로 같은 요청을 다시 보내도 된다.
+     */
+    @ExceptionHandler(StockLockTimeoutException.class)
+    public ProblemDetail handleStockLockTimeout(StockLockTimeoutException e) {
+        log.warn("재고 잠금 대기 초과: {}", e.getMessage());
+        return problem(ErrorCode.STOCK_LOCK_TIMEOUT);
     }
 
     @ExceptionHandler(Exception.class)

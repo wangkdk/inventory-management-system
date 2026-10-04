@@ -192,7 +192,6 @@ class ProductJpaRepositoryTest {
 ### 어디에 두나
 
 - `storage:db-core` 모듈의 `inventory.storage.db.core` 패키지에 둔다. 서비스와 저장소 구현이 둘 다 보이는 가장 아래 모듈이다
-- inventory-api에는 앱이 뜨는지 보는 테스트 하나만 둔다
 
 ### 작성 규칙
 

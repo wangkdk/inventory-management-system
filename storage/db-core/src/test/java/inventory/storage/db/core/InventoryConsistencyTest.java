@@ -7,6 +7,7 @@ import inventory.domain.stock.InsufficientStockException;
 import inventory.domain.stock.InventoryService;
 import inventory.domain.stock.MovementType;
 import inventory.domain.stock.OutboundItem;
+import inventory.domain.stock.StockLockTimeoutException;
 import inventory.domain.stock.StockStatus;
 import inventory.storage.db.core.product.ProductRepositoryAdapter;
 import inventory.storage.db.core.stock.ProductStockMovementEntity;
@@ -15,6 +16,7 @@ import inventory.storage.db.core.stock.ProductStockMovementRepositoryAdapter;
 import inventory.storage.db.core.stock.ProductStockRepositoryAdapter;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
@@ -22,6 +24,10 @@ import org.springframework.data.domain.Sort;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -33,6 +39,7 @@ import java.util.concurrent.Future;
 import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 
 /**
@@ -52,6 +59,9 @@ class InventoryConsistencyTest {
 
     @Autowired
     private ProductStockMovementJpaRepository productStockMovementJpaRepository;
+
+    @Autowired
+    private DataSource dataSource;
 
     @Test
     @DisplayName("등록되지 않은 SKU로 입고하면 상품을 등록하고 입고 수량만큼 재고를 만든다")
@@ -152,6 +162,29 @@ class InventoryConsistencyTest {
     }
 
     /**
+     * 잠금을 기다리는 JDBC 호출은 인터럽트로 깨지 않는다. 별도 스레드에서 돌려야 잠금 대기 시간 제한이 걸리지 않았을 때 멈추지 않고 실패한다.
+     */
+    @Test
+    @Timeout(value = 10, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    @DisplayName("다른 트랜잭션이 재고 행을 잠그고 놓지 않으면 잠금 대기를 포기하고 아무것도 반영하지 않는다")
+    void outboundGivesUpWhenStockStaysLocked() throws Exception {
+        String sku = newSku();
+        Long productId = inventoryService.inbound(new InboundItem(sku, "콜라", 10)).product().getId();
+
+        try (Connection lockHolder = dataSource.getConnection()) {
+            lockHolder.setAutoCommit(false);
+            lockStock(lockHolder, productId);
+
+            assertThatThrownBy(() -> inventoryService.outbound(new OutboundItem(sku, 1)))
+                    .isInstanceOf(StockLockTimeoutException.class);
+
+            lockHolder.rollback();
+        }
+        assertThat(inventoryService.getStockBySku(sku).stock().getQuantity()).isEqualTo(10);
+        assertThat(movements(productId)).hasSize(1);
+    }
+
+    /**
      * 스레드를 한꺼번에 출발시켜 같은 작업을 요청 수만큼 돌리고 결과를 모은다.
      * 한 건이라도 예외가 나면 Future.get()이 예외를 던져 테스트가 실패한다.
      */
@@ -183,6 +216,17 @@ class InventoryConsistencyTest {
             return true;
         } catch (InsufficientStockException e) {
             return false;
+        }
+    }
+
+    /**
+     * 서비스와 상관없는 연결로 재고 행을 잠근다. 이 연결이 커밋이나 롤백하기 전까지 잠금이 남는다.
+     */
+    private static void lockStock(Connection connection, Long productId) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT id FROM product_stock WHERE product_id = ? FOR UPDATE")) {
+            statement.setLong(1, productId);
+            statement.executeQuery();
         }
     }
 
