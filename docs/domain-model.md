@@ -81,6 +81,7 @@ _Aggregate Root_
 - 재고 수량은 음수가 될 수 없다
 - 입고 수량과 출고 수량은 1 이상이다
 - 재고보다 많이 출고하려 하면 `InsufficientStockException`을 던진다
+- 재고 수량은 최대치(`MAX_QUANTITY`, int 최대값 2,147,483,647)를 넘을 수 없다. 넘게 입고하려 하면 `StockLimitExceededException`을 던진다
 - 재고 수량은 `inbound()`와 `outbound()`로만 바꾼다
 - 입출고 기록을 목록으로 갖지 않는다. 기록은 따로 저장한다
 
@@ -89,6 +90,12 @@ _Aggregate Root_
 _Exception_
 
 - 재고보다 많이 출고하려 할 때 던진다. 남은 수량과 요청 수량을 담는다
+
+### 재고 최대치 초과 (StockLimitExceededException)
+
+_Exception_
+
+- 입고 뒤 수량이 최대치를 넘을 때 던진다. 현재 수량, 요청 수량, 최대치를 담는다
 
 ### 재고 현황 (StockStatus)
 

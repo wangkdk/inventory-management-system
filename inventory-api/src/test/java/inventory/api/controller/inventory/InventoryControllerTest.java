@@ -11,6 +11,7 @@ import inventory.domain.stock.InsufficientStockException;
 import inventory.domain.stock.InventoryService;
 import inventory.domain.stock.OutboundItem;
 import inventory.domain.stock.ProductStock;
+import inventory.domain.stock.StockLimitExceededException;
 import inventory.domain.stock.StockStatus;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -55,6 +56,38 @@ class InventoryControllerTest {
                 .bodyJson()
                 .convertTo(ProductStockResponse.class)
                 .isEqualTo(new ProductStockResponse(1L, "SKU-001", "콜라", 10));
+    }
+
+    @Test
+    @DisplayName("입고 뒤 수량이 최대치를 넘으면 409와 STOCK_LIMIT_EXCEEDED, 현재 수량과 요청 수량과 최대치를 돌려준다")
+    void inboundBeyondLimitReturnsConflict() {
+        when(inventoryService.inbound(new InboundItem("SKU-001", "콜라", 10)))
+                .thenThrow(new StockLimitExceededException(1L, Integer.MAX_VALUE - 5, 10, Integer.MAX_VALUE));
+
+        MvcTestResult result = inbound(new InboundRequest("SKU-001", "콜라", 10));
+
+        assertThat(result).hasStatus(HttpStatus.CONFLICT);
+        assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("STOCK_LIMIT_EXCEEDED");
+        assertThat(result).bodyJson().extractingPath("$.current").isEqualTo(Integer.MAX_VALUE - 5);
+        assertThat(result).bodyJson().extractingPath("$.requested").isEqualTo(10);
+        assertThat(result).bodyJson().extractingPath("$.limit").isEqualTo(Integer.MAX_VALUE);
+    }
+
+    @Test
+    @DisplayName("입고 수량이 int 범위를 넘으면 서비스를 부르지 않고 400과 INVALID_REQUEST를 돌려준다")
+    void inboundRejectsQuantityBeyondInt() {
+        MvcTestResult result = mvc.post().uri("/api/v1/inventory/inbound")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"sku": "SKU-001", "name": "콜라", "quantity": 3000000000}
+                        """)
+                .exchange();
+
+        assertThat(result)
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson()
+                .extractingPath("$.code").isEqualTo("INVALID_REQUEST");
+        verifyNoInteractions(inventoryService);
     }
 
     @ParameterizedTest

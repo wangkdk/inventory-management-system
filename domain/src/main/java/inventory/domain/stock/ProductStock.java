@@ -2,6 +2,11 @@ package inventory.domain.stock;
 
 public class ProductStock {
 
+    /**
+     * 재고 수량의 최대치. int와 재고 수량 컬럼(INTEGER)이 담을 수 있는 가장 큰 값이다.
+     */
+    public static final int MAX_QUANTITY = Integer.MAX_VALUE;
+
     private final Long productId;
     private final int quantity;
 
@@ -28,7 +33,10 @@ public class ProductStock {
         if (quantity < 1) {
             throw new IllegalArgumentException("입고 수량은 1 이상이어야 합니다: " + quantity);
         }
-        return new ProductStock(productId, Math.addExact(this.quantity, quantity));
+        if (quantity > MAX_QUANTITY - this.quantity) {
+            throw new StockLimitExceededException(productId, this.quantity, quantity, MAX_QUANTITY);
+        }
+        return new ProductStock(productId, this.quantity + quantity);
     }
 
     public ProductStock outbound(int quantity) {

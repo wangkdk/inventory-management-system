@@ -55,12 +55,26 @@ class ProductStockTest {
     }
 
     @Test
-    @DisplayName("입고 뒤 수량이 int 범위를 넘으면 입고할 수 없다")
-    void inboundRejectsOverflow() {
-        ProductStock stock = ProductStock.of(1L, Integer.MAX_VALUE);
+    @DisplayName("입고 뒤 수량이 최대치(int 최대값)와 같아질 때까지는 입고할 수 있다")
+    void inboundCanReachMaxQuantity() {
+        ProductStock stock = ProductStock.of(1L, Integer.MAX_VALUE - 1);
 
-        assertThatThrownBy(() -> stock.inbound(1))
-                .isInstanceOf(ArithmeticException.class);
+        ProductStock inbounded = stock.inbound(1);
+
+        assertThat(inbounded.getQuantity()).isEqualTo(Integer.MAX_VALUE);
+    }
+
+    @Test
+    @DisplayName("입고 뒤 수량이 최대치를 넘으면 입고할 수 없고, 현재 수량과 요청 수량과 최대치를 알려준다")
+    void inboundRejectsBeyondMaxQuantity() {
+        ProductStock stock = ProductStock.of(1L, Integer.MAX_VALUE - 1);
+
+        assertThatThrownBy(() -> stock.inbound(2))
+                .isInstanceOfSatisfying(StockLimitExceededException.class, e -> {
+                    assertThat(e.getCurrent()).isEqualTo(Integer.MAX_VALUE - 1);
+                    assertThat(e.getRequested()).isEqualTo(2);
+                    assertThat(e.getLimit()).isEqualTo(Integer.MAX_VALUE);
+                });
     }
 
     @Test

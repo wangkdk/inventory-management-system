@@ -16,6 +16,18 @@ Content-Type: application/json
 
 {"sku": "SKU-001", "name": "콜라", "quantity": 0}
 
+### 입고: 수량 자체가 int 범위를 넘음 → 400 INVALID_REQUEST
+POST http://localhost:8080/api/v1/inventory/inbound
+Content-Type: application/json
+
+{"sku": "SKU-001", "name": "콜라", "quantity": 3000000000}
+
+### 입고: 누적이 최대치(2147483647)를 넘음 → 409 STOCK_LIMIT_EXCEEDED, 현재 수량(current), 요청 수량(requested), 최대치(limit)
+POST http://localhost:8080/api/v1/inventory/inbound
+Content-Type: application/json
+
+{"sku": "SKU-001", "name": "콜라", "quantity": 2147483647}
+
 ### 출고: 재고 안에서 출고 → 200
 POST http://localhost:8080/api/v1/inventory/outbound
 Content-Type: application/json

@@ -2,6 +2,7 @@ package inventory.api.config.error;
 
 import inventory.domain.product.ProductNotFoundException;
 import inventory.domain.stock.InsufficientStockException;
+import inventory.domain.stock.StockLimitExceededException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -35,6 +36,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemDetail problem = problem(ErrorCode.INSUFFICIENT_STOCK);
         problem.setProperty("available", e.getAvailable());
         problem.setProperty("requested", e.getRequested());
+        return problem;
+    }
+
+    @ExceptionHandler(StockLimitExceededException.class)
+    public ProblemDetail handleStockLimitExceeded(StockLimitExceededException e) {
+        log.warn("재고 최대치 초과: {}", e.getMessage());
+        ProblemDetail problem = problem(ErrorCode.STOCK_LIMIT_EXCEEDED);
+        problem.setProperty("current", e.getCurrent());
+        problem.setProperty("requested", e.getRequested());
+        problem.setProperty("limit", e.getLimit());
         return problem;
     }
 
