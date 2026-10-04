@@ -16,8 +16,19 @@ public class ProductStock {
         this.quantity = quantity;
     }
 
+    public static ProductStock create(Long productId) {
+        return new ProductStock(productId, 0);
+    }
+
     public static ProductStock of(Long productId, int quantity) {
         return new ProductStock(productId, quantity);
+    }
+
+    public ProductStock inbound(int quantity) {
+        if (quantity < 1) {
+            throw new IllegalArgumentException("입고 수량은 1 이상이어야 합니다: " + quantity);
+        }
+        return new ProductStock(productId, Math.addExact(this.quantity, quantity));
     }
 
     public Long getProductId() {

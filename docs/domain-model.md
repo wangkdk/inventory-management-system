@@ -99,6 +99,15 @@ _Value Object_
 - `product`: `Product` 상품
 - `stock`: `ProductStock` 그 상품의 현재 재고
 
+### 입고 결과 (InboundResult)
+
+_Value Object_
+
+#### 속성
+
+- `status`: `StockStatus` 입고를 마친 뒤의 재고 현황
+- `newlyRegistered`: 이번 입고로 상품을 새로 등록했는지 여부
+
 ### [입출고 기록 애그리거트]
 
 ### 입출고 기록 (ProductStockMovement)
@@ -107,12 +116,10 @@ _Aggregate Root_
 
 #### 속성
 
-- `id`: `Long`
 - `productId`: `Long` 상품
 - `type`: `MovementType` 입출고 유형
 - `quantity`: `int` 변동 수량
 - `quantityAfter`: `int` 변동 뒤 재고 수량
-- `occurredAt`: `Instant` 발생 일시(UTC)
 
 #### 행위
 
@@ -141,6 +148,7 @@ _Enum_
 ### 입고
 
 - 등록되지 않은 SKU면 상품을 등록하고, 수량이 0인 재고를 함께 만든다
+- 등록되지 않은 SKU의 첫 입고가 동시에 들어와도 상품과 재고는 하나씩만 생긴다
 - 이미 등록된 SKU면 요청의 상품명은 쓰지 않는다. 입고는 상품 정보를 바꾸지 않는다
 - 재고 수량을 늘리고 입출고 기록을 남긴다
 
