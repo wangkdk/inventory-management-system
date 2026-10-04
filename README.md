@@ -4,6 +4,8 @@
 
 도메인 규칙과 유스케이스 [도메인 모델](docs/domain-model.md)
 
+DB 스키마(DDL) [schema.sql](storage/db-core/src/main/resources/schema.sql)
+
 ## 기술 스택
 
 | 항목 | 버전 |
@@ -74,7 +76,3 @@ inventory-management-system
 의존 방향은 `inventory-api -> domain <- storage:db-core`입니다. 
 
 모듈과 패키지 규칙 [코딩 컨벤션](docs/coding-convention.md)
-
-## DB 스키마 (DDL)
-
-[storage/db-core/src/main/resources/schema.sql](storage/db-core/src/main/resources/schema.sql)  
