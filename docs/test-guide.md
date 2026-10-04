@@ -113,10 +113,10 @@ class InventoryServiceTest {
     private ProductRegistrar productRegistrar;
 
     @Mock
-    private ProductStockJpaRepository productStockJpaRepository;
+    private ProductStockRepository productStockRepository;
 
     @Mock
-    private ProductStockMovementJpaRepository productStockMovementJpaRepository;
+    private ProductStockMovementRepository productStockMovementRepository;
 
     @InjectMocks
     private InventoryService inventoryService;
@@ -125,13 +125,12 @@ class InventoryServiceTest {
     @DisplayName("재고가 모자라면 수량을 바꾸지 않고 기록도 남기지 않는다")
     void outboundWithInsufficientStockChangesNothing() {
         when(productFinder.getProductBySku("SKU-001")).thenReturn(Product.of(1L, "SKU-001", "콜라"));
-        ProductStockEntity stockEntity = new ProductStockEntity(1L, 2);
-        when(productStockJpaRepository.findByProductIdForUpdate(1L)).thenReturn(Optional.of(stockEntity));
+        when(productStockRepository.findByProductIdForUpdate(1L)).thenReturn(Optional.of(ProductStock.of(1L, 2)));
 
         assertThatThrownBy(() -> inventoryService.outbound(new OutboundItem("SKU-001", 5)))
                 .isInstanceOf(InsufficientStockException.class);
-        assertThat(stockEntity.getQuantity()).isEqualTo(2);
-        verify(productStockMovementJpaRepository, never()).save(any());
+        verify(productStockRepository, never()).update(any());
+        verify(productStockMovementRepository, never()).save(any());
     }
 }
 ```
