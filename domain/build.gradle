@@ -1,0 +1,7 @@
+dependencies {
+    // 스프링은 애너테이션(@Service, @Transactional)으로만 쓰고, 실행할 때는 앱이 넣어 준다
+    compileOnly 'org.springframework:spring-context'
+    compileOnly 'org.springframework:spring-tx'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}

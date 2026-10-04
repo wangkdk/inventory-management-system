@@ -90,7 +90,7 @@ class ProductControllerTest {
 
 - 조건에 따라 무엇을 하고 무엇을 하지 않는지: 이번에 새로 등록한 상품이면 재고 행을 만들고, 이미 있던 상품이면 만들지 않는다
 - 예외가 나는 경로: 재고가 모자라면 수량을 바꾸지 않고 기록도 남기지 않는다
-- DB가 결과를 정하는 동작(잠금, 트랜잭션, 제약)은 여기서 검증하지 않는다. mock은 테스트가 정한 값을 돌려줄 뿐이라서 DB가 실제로 어떻게 동작하는지 알 수 없다. 이런 동작은 DB와 함께 도는 서비스 테스트가 맡는다
+- DB가 결과를 정하는 동작(잠금, 트랜잭션, 제약)은 여기서 검증하지 않는다. mock은 테스트가 정한 값을 돌려줄 뿐이라서 DB가 실제로 어떻게 동작하는지 알 수 없다. 이런 동작은 정합성 테스트가 맡는다
 
 ### 작성 규칙
 
@@ -151,9 +151,9 @@ JPA에 필요한 빈만 띄우고, 실제 PostgreSQL 컨테이너로 검증한�
 - 테스트 클래스에 `@DataJpaTest`와 `@DbContextTest`를 함께 붙인다. `@DbContextTest`가 태그(`db-context`), test 프로필, Testcontainers 설정을 건다
 - `@DataJpaTest`는 엔티티와 Spring Data 리포지토리만 띄운다. `@Service`나 직접 만든 `@Repository` 클래스는 빈으로 올라오지 않는다. 서비스는 서비스 테스트에서 검증한다
 - 테스트마다 트랜잭션이 걸리고 끝나면 롤백된다. 테스트끼리 데이터를 지우지 않아도 된다
-- 한 트랜잭션 안에서 도는 테스트라서 동시성은 여기서 검증하지 않는다. 동시성은 DB와 함께 도는 서비스 테스트에서 검증한다
+- 한 트랜잭션 안에서 도는 테스트라서 동시성은 여기서 검증하지 않는다. 동시성은 정합성 테스트에서 검증한다
 - DB는 PostgreSQL만 쓴다. `FOR UPDATE`와 `ON CONFLICT`가 H2에서는 다르게 동작하므로 H2는 쓰지 않는다
-- 테스트 설정은 `src/test/resources/application-test.yaml`에 둔다.
+- 테스트 설정은 `db-core.yaml`의 test 프로필에 둔다
 - 이름, `@DisplayName`, 검증, 예외 메시지 규칙은 단위 테스트와 같다
 
 ### 예시
@@ -178,9 +178,9 @@ class ProductJpaRepositoryTest {
 }
 ```
 
-## DB와 함께 도는 서비스 테스트
+## 정합성 테스트
 
-서비스 테스트의 예외다. mock으로는 검증할 수 없는, DB가 결과를 정하는 동작만 이 방식으로 검증한다. JPA와 테스트할 서비스, 그 서비스가 쓰는 컴포넌트만 띄우고 실제 PostgreSQL 컨테이너에서 서비스를 부른다. Docker가 있어야 돈다.
+유스케이스를 실제 PostgreSQL에서 돌려, 요청이 동시에 들어오거나 중간에 실패해도 재고 수량과 입출고 기록이 맞게 남는지 검증한다. mock으로는 검증할 수 없는, DB가 결과를 정하는 동작만 여기서 다룬다. Docker가 있어야 돈다.
 
 ### 언제 쓰나
 
@@ -190,10 +190,15 @@ class ProductJpaRepositoryTest {
 - 격리 수준에 기대는 동작: 다른 트랜잭션이 커밋한 행이 보여야 맞게 도는 코드 (READ COMMITTED에서 다시 찾기)
 - 이 중 어디에도 해당하지 않으면 Mockito 서비스 테스트로 쓴다
 
+### 어디에 두나
+
+- `storage:db-core` 모듈의 `inventory.storage.db.core` 패키지에 둔다. 서비스와 저장소 구현이 둘 다 보이는 가장 아래 모듈이다
+- inventory-api에는 앱이 뜨는지 보는 테스트 하나만 둔다
+
 ### 작성 규칙
 
-- 테스트 클래스는 `XxxServiceDbTest`로 두고, `@DataJpaTest`, `@DbContextTest`, `@Import`, `@Transactional(propagation = Propagation.NOT_SUPPORTED)`를 함께 붙인다
-- `@Import`에는 테스트할 서비스와 그 서비스가 쓰는 컴포넌트만 적는다. 무엇에 의존하는지가 테스트 머리에 드러난다
+- 테스트 클래스는 `XxxConsistencyTest`로 두고, `@DataJpaTest`, `@DbContextTest`, `@Import`, `@Transactional(propagation = Propagation.NOT_SUPPORTED)`를 함께 붙인다
+- `@Import`에는 테스트할 서비스, 그 서비스가 쓰는 컴포넌트, 저장소 구현(`XxxRepositoryAdapter`)을 적는다. 무엇에 의존하는지가 테스트 머리에 드러난다
 - `@DataJpaTest`는 테스트마다 트랜잭션을 걸고 롤백한다. `NOT_SUPPORTED`로 그 트랜잭션을 꺼야 서비스가 실제로 커밋하고, 다른 스레드가 그 결과를 본다
 - 롤백되지 않으므로 SKU는 테스트마다 새로 만들고(UUID), 검증은 그 상품의 데이터로 좁힌다
 - 동시성 테스트
@@ -204,14 +209,15 @@ class ProductJpaRepositoryTest {
 
 ### 예시
 
-`movements()`는 그 상품의 입출고 기록을 리포지토리로 읽는 도우미다. 전체 코드는 `InventoryServiceDbTest`에 있다.
+`movements()`는 그 상품의 입출고 기록을 리포지토리로 읽는 도우미다. 전체 코드는 `InventoryConsistencyTest`에 있다.
 
 ```java
 @DataJpaTest
 @DbContextTest
-@Import({InventoryService.class, ProductFinder.class, ProductRegistrar.class})
+@Import({InventoryService.class, ProductFinder.class, ProductRegistrar.class,
+        ProductRepositoryAdapter.class, ProductStockRepositoryAdapter.class, ProductStockMovementRepositoryAdapter.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
-class InventoryServiceDbTest {
+class InventoryConsistencyTest {
 
     @Autowired
     private InventoryService inventoryService;
@@ -254,4 +260,4 @@ class InventoryServiceDbTest {
 
 ## 통합 테스트 (`SpringBootTest`)
 
-앱 전체를 띄워 HTTP 요청부터 DB까지 한 번에 검증한다. 지금은 앱이 뜨는지만 확인하는 `ApplicationTests` 하나만 있고, 통합 테스트를 만들 때 이 섹션에 규칙을 더한다.
+앱 전체를 띄워 HTTP 요청부터 DB까지 한 번에 검증한다. 지금은 앱이 뜨는지만 확인하는 `InventoryApiApplicationTests` 하나만 있고, 통합 테스트를 만들 때 이 섹션에 규칙을 더한다.

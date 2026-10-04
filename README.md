@@ -37,7 +37,7 @@
 
 ```bash
 docker compose up -d
-./gradlew bootRun
+./gradlew :inventory-api:bootRun
 ```
 
 로컬 DB를 내릴 때

@@ -1,0 +1,18 @@
+plugins {
+    id 'java-test-fixtures'
+}
+
+dependencies {
+    implementation project(':domain')
+
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    runtimeOnly 'org.postgresql:postgresql'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
+
+    // DB 테스트 설정(DbContextTest, Testcontainers)은 테스트 픽스처로 두고 inventory-api 테스트도 함께 쓴다
+    testFixturesImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testFixturesImplementation 'org.springframework.boot:spring-boot-testcontainers'
+    testFixturesImplementation 'org.testcontainers:testcontainers-junit-jupiter'
+    testFixturesImplementation 'org.testcontainers:testcontainers-postgresql'
+}

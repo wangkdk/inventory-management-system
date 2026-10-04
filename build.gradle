@@ -1,67 +1,69 @@
 plugins {
-    id 'java'
-    id 'org.springframework.boot' version '4.1.1'
-    id 'io.spring.dependency-management' version '1.1.7'
+    id 'org.springframework.boot' version '4.1.1' apply false
+    id 'io.spring.dependency-management' version '1.1.7' apply false
 }
 
-group = 'inventory'
-version = '0.0.1-SNAPSHOT'
-description = 'inventory-management-system'
+subprojects {
+    apply plugin: 'java-library'
+    apply plugin: 'org.springframework.boot'
+    apply plugin: 'io.spring.dependency-management'
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(25)
+    group = 'inventory'
+    version = '0.0.1-SNAPSHOT'
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(25)
+        }
     }
-}
 
-repositories {
-    mavenCentral()
-}
-
-dependencies {
-    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-    implementation 'org.springframework.boot:spring-boot-starter-validation'
-    implementation 'org.springframework.boot:spring-boot-starter-webmvc'
-    runtimeOnly 'org.postgresql:postgresql'
-    testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
-    testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
-    testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
-    testImplementation 'org.springframework.boot:spring-boot-testcontainers'
-    testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
-    testImplementation 'org.testcontainers:testcontainers-postgresql'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-}
-
-tasks.named('test') {
-    useJUnitPlatform()
-}
-
-tasks.register('unitTest', Test) {
-    description = '스프링 컨텍스트와 DB 없이 도는 단위 테스트만 실행한다'
-    group = 'verification'
-    testClassesDirs = sourceSets.test.output.classesDirs
-    classpath = sourceSets.test.runtimeClasspath
-    useJUnitPlatform {
-        excludeTags 'db-context', 'web-context'
+    repositories {
+        mavenCentral()
     }
-}
 
-tasks.register('webContextTest', Test) {
-    description = '스프링 MVC 슬라이스로 웹 계층만 띄우는 테스트만 실행한다'
-    group = 'verification'
-    testClassesDirs = sourceSets.test.output.classesDirs
-    classpath = sourceSets.test.runtimeClasspath
-    useJUnitPlatform {
-        includeTags 'web-context'
+    tasks.named('bootJar') {
+        enabled = false
     }
-}
 
-tasks.register('dbContextTest', Test) {
-    description = '스프링 컨텍스트와 PostgreSQL 컨테이너가 필요한 테스트만 실행한다'
-    group = 'verification'
-    testClassesDirs = sourceSets.test.output.classesDirs
-    classpath = sourceSets.test.runtimeClasspath
-    useJUnitPlatform {
-        includeTags 'db-context'
+    tasks.named('jar') {
+        enabled = true
+    }
+
+    dependencies {
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+
+    tasks.named('test') {
+        useJUnitPlatform()
+    }
+
+    tasks.register('unitTest', Test) {
+        description = '스프링 컨텍스트와 DB 없이 도는 단위 테스트만 실행한다'
+        group = 'verification'
+        testClassesDirs = sourceSets.test.output.classesDirs
+        classpath = sourceSets.test.runtimeClasspath
+        useJUnitPlatform {
+            excludeTags 'db-context', 'web-context'
+        }
+    }
+
+    tasks.register('webContextTest', Test) {
+        description = '스프링 MVC 슬라이스로 웹 계층만 띄우는 테스트만 실행한다'
+        group = 'verification'
+        testClassesDirs = sourceSets.test.output.classesDirs
+        classpath = sourceSets.test.runtimeClasspath
+        useJUnitPlatform {
+            includeTags 'web-context'
+        }
+    }
+
+    tasks.register('dbContextTest', Test) {
+        description = '스프링 컨텍스트와 PostgreSQL 컨테이너가 필요한 테스트만 실행한다'
+        group = 'verification'
+        testClassesDirs = sourceSets.test.output.classesDirs
+        classpath = sourceSets.test.runtimeClasspath
+        useJUnitPlatform {
+            includeTags 'db-context'
+        }
     }
 }
