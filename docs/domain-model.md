@@ -109,6 +109,15 @@ _Value Object_
 - `name`: 상품명. 등록되지 않은 SKU를 등록할 때만 쓴다
 - `quantity`: `int` 입고 수량
 
+### 출고 품목 (OutboundItem)
+
+_Value Object_
+
+#### 속성
+
+- `sku`: 출고할 상품의 SKU
+- `quantity`: `int` 출고 수량
+
 ### [입출고 기록 애그리거트]
 
 ### 입출고 기록 (ProductStockMovement)

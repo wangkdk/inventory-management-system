@@ -31,6 +31,16 @@ public class ProductStock {
         return new ProductStock(productId, Math.addExact(this.quantity, quantity));
     }
 
+    public ProductStock outbound(int quantity) {
+        if (quantity < 1) {
+            throw new IllegalArgumentException("출고 수량은 1 이상이어야 합니다: " + quantity);
+        }
+        if (quantity > this.quantity) {
+            throw new InsufficientStockException(productId, this.quantity, quantity);
+        }
+        return new ProductStock(productId, this.quantity - quantity);
+    }
+
     public Long getProductId() {
         return productId;
     }

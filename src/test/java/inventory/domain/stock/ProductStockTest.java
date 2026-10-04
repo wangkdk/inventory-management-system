@@ -62,4 +62,47 @@ class ProductStockTest {
         assertThatThrownBy(() -> stock.inbound(1))
                 .isInstanceOf(ArithmeticException.class);
     }
+
+    @Test
+    @DisplayName("출고하면 수량을 줄인 새 객체를 돌려주고, 원래 객체는 바뀌지 않는다")
+    void outboundReturnsDecreasedStock() {
+        ProductStock stock = ProductStock.of(1L, 5);
+
+        ProductStock outbounded = stock.outbound(2);
+
+        assertThat(outbounded.getQuantity()).isEqualTo(3);
+        assertThat(stock.getQuantity()).isEqualTo(5);
+    }
+
+    @Test
+    @DisplayName("재고를 남김없이 출고할 수 있다")
+    void outboundCanEmptyStock() {
+        ProductStock stock = ProductStock.of(1L, 5);
+
+        ProductStock outbounded = stock.outbound(5);
+
+        assertThat(outbounded.getQuantity()).isZero();
+    }
+
+    @Test
+    @DisplayName("재고보다 많이 출고하려 하면 남은 수량과 요청 수량을 담아 거절한다")
+    void outboundRejectsMoreThanStock() {
+        ProductStock stock = ProductStock.of(1L, 5);
+
+        assertThatThrownBy(() -> stock.outbound(6))
+                .isInstanceOfSatisfying(InsufficientStockException.class, e -> {
+                    assertThat(e.getAvailable()).isEqualTo(5);
+                    assertThat(e.getRequested()).isEqualTo(6);
+                });
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, -1})
+    @DisplayName("출고 수량은 1 이상이어야 한다")
+    void outboundRejectsNonPositiveQuantity(int quantity) {
+        ProductStock stock = ProductStock.of(1L, 3);
+
+        assertThatThrownBy(() -> stock.outbound(quantity))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 }
