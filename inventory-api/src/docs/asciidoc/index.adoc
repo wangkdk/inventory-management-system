@@ -1,0 +1,122 @@
+= 재고 관리 API
+:doctype: book
+:icons: font
+:source-highlighter: highlightjs
+:toc: left
+:toclevels: 2
+:sectlinks:
+:snippets: build/generated-snippets
+
+== 개요
+
+=== 에러 응답
+
+에러는 RFC 9457 ProblemDetail 형식으로 응답한다. 클라이언트는 ``code``로 분기한다. ``title``은 코드마다 고정된 문구이고, ``detail``은 참고용이다.
+
+==== 에러 코드
+
+include::{snippets}/error/error-codes.adoc[]
+
+수량이 int 범위를 넘으면 JSON을 읽지 못해 ``INVALID_REQUEST``(400)이고, 입고 뒤 재고 수량이 최대치를 넘으면 ``STOCK_LIMIT_EXCEEDED``(409)다.
+
+==== 공통 필드
+
+모든 에러 응답이 담는 필드다. 아래는 상품이 없을 때(404)의 응답이다.
+
+include::{snippets}/error/http-response.adoc[]
+
+include::{snippets}/error/response-fields.adoc[]
+
+스프링이 처리한 4xx 오류(요청 값 검증, 형식 오류 등)는 ``detail``도 담는다. 아래는 SKU가 비어 있을 때(400)의 응답이다.
+
+include::{snippets}/error-invalid-request/http-response.adoc[]
+
+== 입출고
+
+=== 입고
+
+등록되지 않은 SKU면 상품을 등록한 뒤 입고한다. 이미 등록된 SKU면 요청의 상품명은 쓰지 않는다.
+
+==== 요청
+
+include::{snippets}/inventory-inbound/http-request.adoc[]
+
+include::{snippets}/inventory-inbound/request-fields.adoc[]
+
+==== 응답
+
+include::{snippets}/inventory-inbound/http-response.adoc[]
+
+include::{snippets}/inventory-inbound/response-fields.adoc[]
+
+==== 에러
+
+``INVALID_REQUEST``(400), ``STOCK_LIMIT_EXCEEDED``(409)
+
+``STOCK_LIMIT_EXCEEDED``는 공통 필드에 더해 다음 필드를 담는다.
+
+include::{snippets}/error-stock-limit-exceeded/http-response.adoc[]
+
+include::{snippets}/error-stock-limit-exceeded/response-fields.adoc[]
+
+=== 출고
+
+==== 요청
+
+include::{snippets}/inventory-outbound/http-request.adoc[]
+
+include::{snippets}/inventory-outbound/request-fields.adoc[]
+
+==== 응답
+
+include::{snippets}/inventory-outbound/http-response.adoc[]
+
+include::{snippets}/inventory-outbound/response-fields.adoc[]
+
+==== 에러
+
+``INVALID_REQUEST``(400), ``PRODUCT_NOT_FOUND``(404), ``INSUFFICIENT_STOCK``(409). 재고가 모자라면 일부만 출고하지 않고 요청 전체를 거절한다.
+
+``INSUFFICIENT_STOCK``은 공통 필드에 더해 다음 필드를 담는다.
+
+include::{snippets}/error-insufficient-stock/http-response.adoc[]
+
+include::{snippets}/error-insufficient-stock/response-fields.adoc[]
+
+== 재고 조회
+
+=== id로 조회
+
+==== 요청
+
+include::{snippets}/product-get/http-request.adoc[]
+
+include::{snippets}/product-get/path-parameters.adoc[]
+
+==== 응답
+
+include::{snippets}/product-get/http-response.adoc[]
+
+include::{snippets}/product-get/response-fields.adoc[]
+
+==== 에러
+
+``INVALID_REQUEST``(400, id가 숫자가 아닐 때), ``PRODUCT_NOT_FOUND``(404)
+
+=== SKU로 조회
+
+==== 요청
+
+include::{snippets}/product-get-by-sku/http-request.adoc[]
+
+include::{snippets}/product-get-by-sku/query-parameters.adoc[]
+
+==== 응답
+
+include::{snippets}/product-get-by-sku/http-response.adoc[]
+
+include::{snippets}/product-get-by-sku/response-fields.adoc[]
+
+==== 에러
+
+``INVALID_REQUEST``(400, SKU가 비어 있을 때), ``PRODUCT_NOT_FOUND``(404)

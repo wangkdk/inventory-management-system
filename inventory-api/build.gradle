@@ -1,3 +1,11 @@
+plugins {
+    id 'org.asciidoctor.jvm.convert'
+}
+
+ext {
+    set('snippetsDir', file("build/generated-snippets"))
+}
+
 tasks.named('bootJar') {
     enabled = true
 }
@@ -14,7 +22,19 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 
+    testImplementation 'org.springframework.boot:spring-boot-starter-restdocs'
     testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+    testImplementation 'org.springframework.restdocs:spring-restdocs-mockmvc'
     testImplementation testFixtures(project(':storage:db-core'))
+}
+
+// 문서 조각은 웹 테스트(@WebContextTest)만 만든다. DB가 필요한 테스트는 돌리지 않는다
+tasks.named('webContextTest') {
+    outputs.dir snippetsDir
+}
+
+tasks.named('asciidoctor') {
+    inputs.dir snippetsDir
+    dependsOn webContextTest
 }

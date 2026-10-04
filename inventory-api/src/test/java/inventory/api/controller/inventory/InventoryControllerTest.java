@@ -29,6 +29,11 @@ import tools.jackson.databind.json.JsonMapper;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.document;
+import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
+import static org.springframework.restdocs.payload.PayloadDocumentation.relaxedResponseFields;
+import static org.springframework.restdocs.payload.PayloadDocumentation.requestFields;
+import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
 
 @WebMvcTest(InventoryController.class)
 @WebContextTest
@@ -53,6 +58,16 @@ class InventoryControllerTest {
 
         assertThat(result)
                 .hasStatusOk()
+                .apply(document("inventory-inbound",
+                        requestFields(
+                                fieldWithPath("sku").description("SKU. 64자 이하"),
+                                fieldWithPath("name").description("상품명. 200자 이하. 등록되지 않은 SKU를 등록할 때만 쓴다"),
+                                fieldWithPath("quantity").description("입고 수량. 1 이상")),
+                        responseFields(
+                                fieldWithPath("id").description("상품 id"),
+                                fieldWithPath("sku").description("SKU"),
+                                fieldWithPath("name").description("저장된 상품명"),
+                                fieldWithPath("quantity").description("입고 뒤 재고 수량"))))
                 .bodyJson()
                 .convertTo(ProductStockResponse.class)
                 .isEqualTo(new ProductStockResponse(1L, "SKU-001", "콜라", 10));
@@ -66,7 +81,13 @@ class InventoryControllerTest {
 
         MvcTestResult result = inbound(new InboundRequest("SKU-001", "콜라", 10));
 
-        assertThat(result).hasStatus(HttpStatus.CONFLICT);
+        assertThat(result)
+                .hasStatus(HttpStatus.CONFLICT)
+                .apply(document("error-stock-limit-exceeded",
+                        relaxedResponseFields(
+                                fieldWithPath("current").description("현재 재고 수량"),
+                                fieldWithPath("requested").description("요청한 입고 수량"),
+                                fieldWithPath("limit").description("재고 수량의 최대치"))));
         assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("STOCK_LIMIT_EXCEEDED");
         assertThat(result).bodyJson().extractingPath("$.current").isEqualTo(Integer.MAX_VALUE - 5);
         assertThat(result).bodyJson().extractingPath("$.requested").isEqualTo(10);
@@ -119,6 +140,15 @@ class InventoryControllerTest {
 
         assertThat(result)
                 .hasStatusOk()
+                .apply(document("inventory-outbound",
+                        requestFields(
+                                fieldWithPath("sku").description("SKU. 64자 이하"),
+                                fieldWithPath("quantity").description("출고 수량. 1 이상")),
+                        responseFields(
+                                fieldWithPath("id").description("상품 id"),
+                                fieldWithPath("sku").description("SKU"),
+                                fieldWithPath("name").description("상품명"),
+                                fieldWithPath("quantity").description("출고 뒤 재고 수량"))))
                 .bodyJson()
                 .convertTo(ProductStockResponse.class)
                 .isEqualTo(new ProductStockResponse(1L, "SKU-001", "콜라", 7));
@@ -132,7 +162,12 @@ class InventoryControllerTest {
 
         MvcTestResult result = outbound(new OutboundRequest("SKU-001", 5));
 
-        assertThat(result).hasStatus(HttpStatus.CONFLICT);
+        assertThat(result)
+                .hasStatus(HttpStatus.CONFLICT)
+                .apply(document("error-insufficient-stock",
+                        relaxedResponseFields(
+                                fieldWithPath("available").description("출고할 수 있는 수량. 현재 재고 수량과 같다"),
+                                fieldWithPath("requested").description("요청한 출고 수량"))));
         assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("INSUFFICIENT_STOCK");
         assertThat(result).bodyJson().extractingPath("$.available").isEqualTo(2);
         assertThat(result).bodyJson().extractingPath("$.requested").isEqualTo(5);

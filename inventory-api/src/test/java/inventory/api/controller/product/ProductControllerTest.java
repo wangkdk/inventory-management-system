@@ -2,6 +2,7 @@ package inventory.api.controller.product;
 
 import inventory.WebContextTest;
 import inventory.api.config.error.ErrorCode;
+import inventory.api.config.error.ErrorCodesSnippet;
 import inventory.api.controller.product.dto.ProductStockResponse;
 import inventory.domain.product.Product;
 import inventory.domain.product.ProductNotFoundException;
@@ -14,6 +15,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders;
+import org.springframework.restdocs.payload.JsonFieldType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
@@ -21,6 +24,12 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.document;
+import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
+import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
+import static org.springframework.restdocs.request.RequestDocumentation.parameterWithName;
+import static org.springframework.restdocs.request.RequestDocumentation.pathParameters;
+import static org.springframework.restdocs.request.RequestDocumentation.queryParameters;
 
 @WebMvcTest(ProductController.class)
 @WebContextTest
@@ -37,8 +46,15 @@ class ProductControllerTest {
     void getProductById() {
         when(inventoryService.getStock(1L)).thenReturn(stockStatus(1L, "SKU-001", "콜라", 7));
 
-        assertThat(mvc.get().uri("/api/v1/products/{productId}", 1L))
+        assertThat(mvc.perform(RestDocumentationRequestBuilders.get("/api/v1/products/{productId}", 1L)))
                 .hasStatusOk()
+                .apply(document("product-get",
+                        pathParameters(parameterWithName("productId").description("상품 id")),
+                        responseFields(
+                                fieldWithPath("id").description("상품 id"),
+                                fieldWithPath("sku").description("SKU"),
+                                fieldWithPath("name").description("상품명"),
+                                fieldWithPath("quantity").description("현재 재고 수량"))))
                 .bodyJson()
                 .convertTo(ProductStockResponse.class)
                 .isEqualTo(new ProductStockResponse(1L, "SKU-001", "콜라", 7));
@@ -51,6 +67,13 @@ class ProductControllerTest {
 
         assertThat(mvc.get().uri("/api/v1/products").param("sku", "SKU-002"))
                 .hasStatusOk()
+                .apply(document("product-get-by-sku",
+                        queryParameters(parameterWithName("sku").description("SKU")),
+                        responseFields(
+                                fieldWithPath("id").description("상품 id"),
+                                fieldWithPath("sku").description("SKU"),
+                                fieldWithPath("name").description("상품명"),
+                                fieldWithPath("quantity").description("현재 재고 수량"))))
                 .bodyJson()
                 .convertTo(ProductStockResponse.class)
                 .isEqualTo(new ProductStockResponse(2L, "SKU-002", "사이다", 3));
@@ -64,6 +87,15 @@ class ProductControllerTest {
         assertThat(mvc.get().uri("/api/v1/products/{productId}", 999L))
                 .hasStatus(HttpStatus.NOT_FOUND)
                 .hasContentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .apply(document("error",
+                        responseFields(
+                                fieldWithPath("title").description("에러 코드마다 고정된 문구"),
+                                fieldWithPath("status").description("HTTP 상태 코드"),
+                                fieldWithPath("detail").type(JsonFieldType.STRING).optional()
+                                        .description("참고용 설명. 스프링이 처리한 4xx 오류에만 있다"),
+                                fieldWithPath("instance").description("요청 경로"),
+                                fieldWithPath("code").description("에러 코드. 클라이언트는 이 값으로 분기한다")),
+                        new ErrorCodesSnippet()))
                 .bodyJson()
                 .extractingPath("$.code").isEqualTo("PRODUCT_NOT_FOUND");
     }
@@ -84,6 +116,7 @@ class ProductControllerTest {
     void getProductBySkuRejectsBlankSku() {
         assertThat(mvc.get().uri("/api/v1/products").param("sku", " "))
                 .hasStatus(HttpStatus.BAD_REQUEST)
+                .apply(document("error-invalid-request"))
                 .bodyJson()
                 .extractingPath("$.code").isEqualTo("INVALID_REQUEST");
         verifyNoInteractions(inventoryService);
