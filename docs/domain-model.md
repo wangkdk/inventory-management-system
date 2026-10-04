@@ -99,6 +99,16 @@ _Value Object_
 - `product`: `Product` 상품
 - `stock`: `ProductStock` 그 상품의 현재 재고
 
+### 입고 품목 (InboundItem)
+
+_Value Object_
+
+#### 속성
+
+- `sku`: 입고할 상품의 SKU
+- `name`: 상품명. 등록되지 않은 SKU를 등록할 때만 쓴다
+- `quantity`: `int` 입고 수량
+
 ### [입출고 기록 애그리거트]
 
 ### 입출고 기록 (ProductStockMovement)

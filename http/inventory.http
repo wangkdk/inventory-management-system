@@ -1,3 +1,21 @@
+### 입고: 등록되지 않은 SKU면 상품을 등록하고 입고한다 → 200
+POST http://localhost:8080/api/v1/inventory/inbound
+Content-Type: application/json
+
+{"sku": "SKU-001", "name": "콜라", "quantity": 10}
+
+### 입고: 이미 등록된 SKU → 200, 요청의 상품명은 쓰지 않는다
+POST http://localhost:8080/api/v1/inventory/inbound
+Content-Type: application/json
+
+{"sku": "SKU-001", "name": "다른 이름", "quantity": 5}
+
+### 입고: 수량이 0 → 400 INVALID_REQUEST
+POST http://localhost:8080/api/v1/inventory/inbound
+Content-Type: application/json
+
+{"sku": "SKU-001", "name": "콜라", "quantity": 0}
+
 ### 상품과 현재 재고 조회 (id)
 GET http://localhost:8080/api/v1/products/1
 
