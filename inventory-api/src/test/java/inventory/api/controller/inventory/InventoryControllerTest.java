@@ -6,6 +6,7 @@ import inventory.api.controller.inventory.dto.OutboundRequest;
 import inventory.api.controller.product.dto.ProductStockResponse;
 import inventory.domain.product.Product;
 import inventory.domain.product.ProductNotFoundException;
+import inventory.domain.stock.IdempotencyKeyMismatchException;
 import inventory.domain.stock.InboundItem;
 import inventory.domain.stock.InsufficientStockException;
 import inventory.domain.stock.InventoryService;
@@ -18,10 +19,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.restdocs.headers.HeaderDescriptor;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
@@ -30,6 +33,8 @@ import tools.jackson.databind.json.JsonMapper;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.restdocs.headers.HeaderDocumentation.headerWithName;
+import static org.springframework.restdocs.headers.HeaderDocumentation.requestHeaders;
 import static org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.document;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
 import static org.springframework.restdocs.payload.PayloadDocumentation.relaxedResponseFields;
@@ -50,16 +55,17 @@ class InventoryControllerTest {
     private InventoryService inventoryService;
 
     @Test
-    @DisplayName("입고하면 200과 입고 뒤 재고를 돌려준다")
+    @DisplayName("요청 키와 함께 입고하면 키를 서비스로 넘기고 200과 입고 뒤 재고를 돌려준다")
     void inboundReturnsStock() {
-        when(inventoryService.inbound(new InboundItem("SKU-001", "콜라", 10)))
+        when(inventoryService.inbound(new InboundItem("SKU-001", "콜라", 10), "key-1"))
                 .thenReturn(stockStatus(1L, "SKU-001", "콜라", 10));
 
-        MvcTestResult result = inbound(new InboundRequest("SKU-001", "콜라", 10));
+        MvcTestResult result = inbound(new InboundRequest("SKU-001", "콜라", 10), "key-1");
 
         assertThat(result)
                 .hasStatusOk()
                 .apply(document("inventory-inbound",
+                        requestHeaders(idempotencyKeyHeader()),
                         requestFields(
                                 fieldWithPath("sku").description("SKU. 64자 이하"),
                                 fieldWithPath("name").description("상품명. 200자 이하. 등록되지 않은 SKU를 등록할 때만 쓴다"),
@@ -77,7 +83,7 @@ class InventoryControllerTest {
     @Test
     @DisplayName("입고 뒤 수량이 최대치를 넘으면 409와 STOCK_LIMIT_EXCEEDED, 현재 수량과 요청 수량과 최대치를 돌려준다")
     void inboundBeyondLimitReturnsConflict() {
-        when(inventoryService.inbound(new InboundItem("SKU-001", "콜라", 10)))
+        when(inventoryService.inbound(new InboundItem("SKU-001", "콜라", 10), null))
                 .thenThrow(new StockLimitExceededException(1L, Integer.MAX_VALUE - 5, 10, Integer.MAX_VALUE));
 
         MvcTestResult result = inbound(new InboundRequest("SKU-001", "콜라", 10));
@@ -132,16 +138,17 @@ class InventoryControllerTest {
     }
 
     @Test
-    @DisplayName("출고하면 200과 출고 뒤 재고를 돌려준다")
+    @DisplayName("요청 키와 함께 출고하면 키를 서비스로 넘기고 200과 출고 뒤 재고를 돌려준다")
     void outboundReturnsStock() {
-        when(inventoryService.outbound(new OutboundItem("SKU-001", 3)))
+        when(inventoryService.outbound(new OutboundItem("SKU-001", 3), "key-1"))
                 .thenReturn(stockStatus(1L, "SKU-001", "콜라", 7));
 
-        MvcTestResult result = outbound(new OutboundRequest("SKU-001", 3));
+        MvcTestResult result = outbound(new OutboundRequest("SKU-001", 3), "key-1");
 
         assertThat(result)
                 .hasStatusOk()
                 .apply(document("inventory-outbound",
+                        requestHeaders(idempotencyKeyHeader()),
                         requestFields(
                                 fieldWithPath("sku").description("SKU. 64자 이하"),
                                 fieldWithPath("quantity").description("출고 수량. 1 이상")),
@@ -158,7 +165,7 @@ class InventoryControllerTest {
     @Test
     @DisplayName("재고보다 많이 출고하면 409와 INSUFFICIENT_STOCK, 남은 수량과 요청 수량을 돌려준다")
     void outboundInsufficientStockReturnsConflict() {
-        when(inventoryService.outbound(new OutboundItem("SKU-001", 5)))
+        when(inventoryService.outbound(new OutboundItem("SKU-001", 5), null))
                 .thenThrow(new InsufficientStockException(1L, 2, 5));
 
         MvcTestResult result = outbound(new OutboundRequest("SKU-001", 5));
@@ -177,7 +184,7 @@ class InventoryControllerTest {
     @Test
     @DisplayName("없는 SKU를 출고하면 404와 PRODUCT_NOT_FOUND를 돌려준다")
     void outboundUnknownSkuReturnsNotFound() {
-        when(inventoryService.outbound(new OutboundItem("SKU-404", 1)))
+        when(inventoryService.outbound(new OutboundItem("SKU-404", 1), null))
                 .thenThrow(ProductNotFoundException.bySku("SKU-404"));
 
         MvcTestResult result = outbound(new OutboundRequest("SKU-404", 1));
@@ -191,7 +198,7 @@ class InventoryControllerTest {
     @Test
     @DisplayName("재고 잠금을 기다리다 시간이 넘으면 503과 STOCK_LOCK_TIMEOUT을 돌려준다")
     void outboundLockTimeoutReturnsServiceUnavailable() {
-        when(inventoryService.outbound(new OutboundItem("SKU-001", 1)))
+        when(inventoryService.outbound(new OutboundItem("SKU-001", 1), null))
                 .thenThrow(new StockLockTimeoutException(1L, null));
 
         MvcTestResult result = outbound(new OutboundRequest("SKU-001", 1));
@@ -201,6 +208,33 @@ class InventoryControllerTest {
                 .apply(document("error-stock-lock-timeout"))
                 .bodyJson()
                 .extractingPath("$.code").isEqualTo("STOCK_LOCK_TIMEOUT");
+    }
+
+    @Test
+    @DisplayName("이미 처리한 요청 키로 내용이 다른 출고가 오면 422와 IDEMPOTENCY_KEY_MISMATCH를 돌려준다")
+    void outboundWithReusedKeyReturnsUnprocessable() {
+        when(inventoryService.outbound(new OutboundItem("SKU-001", 5), "key-1"))
+                .thenThrow(new IdempotencyKeyMismatchException("key-1"));
+
+        MvcTestResult result = outbound(new OutboundRequest("SKU-001", 5), "key-1");
+
+        assertThat(result)
+                .hasStatus(HttpStatus.UNPROCESSABLE_CONTENT)
+                .bodyJson()
+                .extractingPath("$.code").isEqualTo("IDEMPOTENCY_KEY_MISMATCH");
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 65})
+    @DisplayName("요청 키가 비었거나 64자를 넘으면 서비스를 부르지 않고 400과 INVALID_REQUEST를 돌려준다")
+    void outboundRejectsInvalidKeyLength(int length) {
+        MvcTestResult result = outbound(new OutboundRequest("SKU-001", 1), "k".repeat(length));
+
+        assertThat(result)
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson()
+                .extractingPath("$.code").isEqualTo("INVALID_REQUEST");
+        verifyNoInteractions(inventoryService);
     }
 
     @ParameterizedTest
@@ -226,6 +260,27 @@ class InventoryControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(jsonMapper.writeValueAsString(request))
                 .exchange();
+    }
+
+    private MvcTestResult inbound(InboundRequest request, String idempotencyKey) {
+        return mvc.post().uri("/api/v1/inventory/inbound")
+                .header(InventoryController.IDEMPOTENCY_KEY, idempotencyKey)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(jsonMapper.writeValueAsString(request))
+                .exchange();
+    }
+
+    private MvcTestResult outbound(OutboundRequest request, String idempotencyKey) {
+        return mvc.post().uri("/api/v1/inventory/outbound")
+                .header(InventoryController.IDEMPOTENCY_KEY, idempotencyKey)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(jsonMapper.writeValueAsString(request))
+                .exchange();
+    }
+
+    private static HeaderDescriptor idempotencyKeyHeader() {
+        return headerWithName(InventoryController.IDEMPOTENCY_KEY)
+                .description("요청 키. 선택, 64자 이하. 같은 키로 다시 보낸 요청은 한 번만 반영되고 처음 결과를 돌려받는다");
     }
 
     private MvcTestResult outbound(OutboundRequest request) {

@@ -3,7 +3,6 @@ package inventory.storage.db.core.product;
 import inventory.domain.product.Product;
 import inventory.domain.product.ProductRepository;
 import org.springframework.stereotype.Repository;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
@@ -29,11 +28,8 @@ public class ProductRepositoryAdapter implements ProductRepository {
         return productJpaRepository.findBySku(sku).map(ProductEntity::toProduct);
     }
 
-    /**
-     * 상품은 재고 행과 같은 트랜잭션에서 만들어야 해서, 서비스 트랜잭션 안에서만 부를 수 있다.
-     */
     @Override
-    @Transactional(propagation = Propagation.MANDATORY)
+    @Transactional
     public boolean insertIfAbsent(Product product) {
         return productJpaRepository.insertIfAbsent(product.getSku(), product.getName()) == 1;
     }

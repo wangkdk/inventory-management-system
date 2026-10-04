@@ -26,7 +26,7 @@
 트랜잭션은 최대한 짧게 가져간다. DB 연결과 잠금을 쥐고 있는 시간만큼 다른 요청이 기다린다.
 
 - 저장소 구현이 메서드마다 트랜잭션을 건다. 조회는 `@Transactional(readOnly = true)`, 쓰기는 `@Transactional`
-- 서비스 트랜잭션 안에서만 의미가 있는 저장소 메서드(잠금 조회 등)는 `@Transactional(propagation = Propagation.MANDATORY)`로 건다. 서비스 트랜잭션 없이 부르면 예외가 난다
+- 잠금에 기대는 저장소 메서드(잠금 조회, 잠근 행의 수정)만 `@Transactional(propagation = Propagation.MANDATORY)`로 건다. 서비스 트랜잭션 없이 부르면 예외가 난다
 - 서비스에는 여러 저장소 호출을 한 트랜잭션으로 묶어야 할 때만 `@Transactional`을 둔다. 저장소의 트랜잭션은 거기에 합류한다
 - 컴포넌트에는 `@Transactional`을 두지 않는다
 

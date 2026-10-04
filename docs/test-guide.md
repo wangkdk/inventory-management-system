@@ -127,7 +127,7 @@ class InventoryServiceTest {
         when(productFinder.getProductBySku("SKU-001")).thenReturn(Product.of(1L, "SKU-001", "콜라"));
         when(productStockRepository.findByProductIdForUpdate(1L)).thenReturn(Optional.of(ProductStock.of(1L, 2)));
 
-        assertThatThrownBy(() -> inventoryService.outbound(new OutboundItem("SKU-001", 5)))
+        assertThatThrownBy(() -> inventoryService.outbound(new OutboundItem("SKU-001", 5), null))
                 .isInstanceOf(InsufficientStockException.class);
         verify(productStockRepository, never()).update(any());
         verify(productStockMovementRepository, never()).save(any());
@@ -213,7 +213,8 @@ class ProductJpaRepositoryTest {
 @DataJpaTest
 @DbContextTest
 @Import({InventoryService.class, ProductFinder.class, ProductRegistrar.class,
-        ProductRepositoryAdapter.class, ProductStockRepositoryAdapter.class, ProductStockMovementRepositoryAdapter.class})
+        ProductRepositoryAdapter.class, ProductStockRepositoryAdapter.class, ProductStockMovementRepositoryAdapter.class,
+        IdempotencyRecordRepositoryAdapter.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class InventoryConsistencyTest {
 
@@ -224,9 +225,9 @@ class InventoryConsistencyTest {
     @DisplayName("등록된 상품에 입고가 동시에 들어와도 수량이 빠짐없이 늘어난다")
     void concurrentInboundAddsEveryQuantity() throws Exception {
         String sku = "SKU-" + UUID.randomUUID();
-        inventoryService.inbound(new InboundItem(sku, "콜라", 100));
+        inventoryService.inbound(new InboundItem(sku, "콜라", 100), null);
 
-        runConcurrently(100, () -> inventoryService.inbound(new InboundItem(sku, "콜라", 1)));
+        runConcurrently(100, () -> inventoryService.inbound(new InboundItem(sku, "콜라", 1), null));
 
         StockStatus status = inventoryService.getStockBySku(sku);
         assertThat(status.stock().getQuantity()).isEqualTo(200);

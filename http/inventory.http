@@ -34,6 +34,27 @@ Content-Type: application/json
 
 {"sku": "SKU-001", "quantity": 3}
 
+### 출고: 요청 키를 붙여 보냄 → 200
+POST http://localhost:8080/api/v1/inventory/outbound
+Content-Type: application/json
+Idempotency-Key: 7b1e2c4a-0d3f-4f6a-9c2b-1a2b3c4d5e6f
+
+{"sku": "SKU-001", "quantity": 1}
+
+### 출고: 같은 요청 키로 다시 보냄 → 200, 재고는 그대로이고 처음 결과를 돌려준다
+POST http://localhost:8080/api/v1/inventory/outbound
+Content-Type: application/json
+Idempotency-Key: 7b1e2c4a-0d3f-4f6a-9c2b-1a2b3c4d5e6f
+
+{"sku": "SKU-001", "quantity": 1}
+
+### 출고: 같은 요청 키로 수량이 다름 → 422 IDEMPOTENCY_KEY_MISMATCH
+POST http://localhost:8080/api/v1/inventory/outbound
+Content-Type: application/json
+Idempotency-Key: 7b1e2c4a-0d3f-4f6a-9c2b-1a2b3c4d5e6f
+
+{"sku": "SKU-001", "quantity": 2}
+
 ### 출고: 재고보다 많이 → 409 INSUFFICIENT_STOCK, 남은 수량(available)과 요청 수량(requested)
 POST http://localhost:8080/api/v1/inventory/outbound
 Content-Type: application/json

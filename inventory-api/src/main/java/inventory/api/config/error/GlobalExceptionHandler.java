@@ -1,6 +1,7 @@
 package inventory.api.config.error;
 
 import inventory.domain.product.ProductNotFoundException;
+import inventory.domain.stock.IdempotencyKeyMismatchException;
 import inventory.domain.stock.InsufficientStockException;
 import inventory.domain.stock.StockLimitExceededException;
 import inventory.domain.stock.StockLockTimeoutException;
@@ -57,6 +58,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     public ProblemDetail handleStockLockTimeout(StockLockTimeoutException e) {
         log.warn("재고 잠금 대기 초과: {}", e.getMessage());
         return problem(ErrorCode.STOCK_LOCK_TIMEOUT);
+    }
+
+    @ExceptionHandler(IdempotencyKeyMismatchException.class)
+    public ProblemDetail handleIdempotencyKeyMismatch(IdempotencyKeyMismatchException e) {
+        log.warn("요청 키 불일치: {}", e.getMessage());
+        return problem(ErrorCode.IDEMPOTENCY_KEY_MISMATCH);
     }
 
     @ExceptionHandler(Exception.class)

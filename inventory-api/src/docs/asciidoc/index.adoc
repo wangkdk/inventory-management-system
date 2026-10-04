@@ -37,6 +37,13 @@ include::{snippets}/error-invalid-request/http-response.adoc[]
 
 include::{snippets}/error-stock-lock-timeout/http-response.adoc[]
 
+=== 요청 키
+
+입고와 출고는 ``Idempotency-Key`` 헤더로 요청 키를 받는다(선택, 64자 이하). 응답을 받지 못해 같은 요청을 다시 보낼 때 같은 키를 쓰면, 재고에는 한 번만 반영되고 처음 처리한 결과를 돌려받는다. 결과의 수량은 지금 수량이 아니라 처음 처리한 직후의 수량이다.
+
+- 같은 키로 상품, 유형, 수량이 다른 요청을 보내면 ``IDEMPOTENCY_KEY_MISMATCH``(422)로 거절한다
+- 처음 처리할 때 실패한 요청은 키를 남기지 않는다. 같은 키로 다시 보내면 다시 처리한다
+
 == 입출고
 
 === 입고
@@ -46,6 +53,8 @@ include::{snippets}/error-stock-lock-timeout/http-response.adoc[]
 ==== 요청
 
 include::{snippets}/inventory-inbound/http-request.adoc[]
+
+include::{snippets}/inventory-inbound/request-headers.adoc[]
 
 include::{snippets}/inventory-inbound/request-fields.adoc[]
 
@@ -57,7 +66,7 @@ include::{snippets}/inventory-inbound/response-fields.adoc[]
 
 ==== 에러
 
-``INVALID_REQUEST``(400), ``STOCK_LIMIT_EXCEEDED``(409), ``STOCK_LOCK_TIMEOUT``(503)
+``INVALID_REQUEST``(400), ``STOCK_LIMIT_EXCEEDED``(409), ``IDEMPOTENCY_KEY_MISMATCH``(422), ``STOCK_LOCK_TIMEOUT``(503)
 
 ``STOCK_LIMIT_EXCEEDED``는 공통 필드에 더해 다음 필드를 담는다.
 
@@ -71,6 +80,8 @@ include::{snippets}/error-stock-limit-exceeded/response-fields.adoc[]
 
 include::{snippets}/inventory-outbound/http-request.adoc[]
 
+include::{snippets}/inventory-outbound/request-headers.adoc[]
+
 include::{snippets}/inventory-outbound/request-fields.adoc[]
 
 ==== 응답
@@ -81,7 +92,7 @@ include::{snippets}/inventory-outbound/response-fields.adoc[]
 
 ==== 에러
 
-``INVALID_REQUEST``(400), ``PRODUCT_NOT_FOUND``(404), ``INSUFFICIENT_STOCK``(409), ``STOCK_LOCK_TIMEOUT``(503). 재고가 모자라면 일부만 출고하지 않고 요청 전체를 거절한다.
+``INVALID_REQUEST``(400), ``PRODUCT_NOT_FOUND``(404), ``INSUFFICIENT_STOCK``(409), ``IDEMPOTENCY_KEY_MISMATCH``(422), ``STOCK_LOCK_TIMEOUT``(503). 재고가 모자라면 일부만 출고하지 않고 요청 전체를 거절한다.
 
 ``INSUFFICIENT_STOCK``은 공통 필드에 더해 다음 필드를 담는다.
 

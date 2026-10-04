@@ -14,7 +14,8 @@ public enum ErrorCode {
     PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "상품을 찾을 수 없습니다"),
     INSUFFICIENT_STOCK(HttpStatus.CONFLICT, "재고가 부족합니다"),
     STOCK_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "재고 수량이 최대치를 넘습니다"),
-    STOCK_LOCK_TIMEOUT(HttpStatus.SERVICE_UNAVAILABLE, "요청이 몰려 처리하지 못했습니다. 잠시 후 다시 시도해 주세요");
+    STOCK_LOCK_TIMEOUT(HttpStatus.SERVICE_UNAVAILABLE, "요청이 몰려 처리하지 못했습니다. 잠시 후 다시 시도해 주세요"),
+    IDEMPOTENCY_KEY_MISMATCH(HttpStatus.UNPROCESSABLE_CONTENT, "같은 요청 키로 다른 요청을 보냈습니다");
 
     private final HttpStatus status;
     private final String title;

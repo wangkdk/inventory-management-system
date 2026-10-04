@@ -11,6 +11,8 @@
 | 입고 품목 | InboundItem | 무엇을 몇 개 입고하는지: SKU, 상품명, 수량 |
 | 출고 | Outbound | 재고 수량을 줄이는 일. 재고보다 많이 뺄 수 없다 |
 | 출고 품목 | OutboundItem | 무엇을 몇 개 출고하는지: SKU, 수량 |
+| 요청 키 | idempotencyKey | 입고 출고 요청마다 붙이는 고유 값. 같은 키로 다시 보낸 요청은 한 번만 반영된다 |
+| 요청 키 기록 | IdempotencyRecord | 요청 키로 처리한 입고나 출고와 그 결과. 같은 키로 다시 보낸 요청에 처음 결과를 돌려줄 때 쓴다 |
 | 입출고 기록 | ProductStockMovement | 입고나 출고 한 번의 기록. 추가만 하고 고치지 않는다 |
 | 입출고 유형 | MovementType | 기록이 입고(INBOUND)인지 출고(OUTBOUND)인지 |
 | 변동 수량 | quantity | 입고나 출고 한 번으로 늘거나 준 수량. 1 이상 |

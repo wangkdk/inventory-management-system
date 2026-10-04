@@ -2,6 +2,7 @@ package inventory.storage.db.core;
 
 import inventory.domain.product.ProductFinder;
 import inventory.domain.product.ProductRegistrar;
+import inventory.domain.stock.IdempotencyKeyMismatchException;
 import inventory.domain.stock.InboundItem;
 import inventory.domain.stock.InsufficientStockException;
 import inventory.domain.stock.InventoryService;
@@ -10,6 +11,7 @@ import inventory.domain.stock.OutboundItem;
 import inventory.domain.stock.StockLockTimeoutException;
 import inventory.domain.stock.StockStatus;
 import inventory.storage.db.core.product.ProductRepositoryAdapter;
+import inventory.storage.db.core.stock.IdempotencyRecordRepositoryAdapter;
 import inventory.storage.db.core.stock.ProductStockMovementEntity;
 import inventory.storage.db.core.stock.ProductStockMovementJpaRepository;
 import inventory.storage.db.core.stock.ProductStockMovementRepositoryAdapter;
@@ -50,7 +52,8 @@ import static org.assertj.core.api.Assertions.tuple;
 @DataJpaTest
 @DbContextTest
 @Import({InventoryService.class, ProductFinder.class, ProductRegistrar.class,
-        ProductRepositoryAdapter.class, ProductStockRepositoryAdapter.class, ProductStockMovementRepositoryAdapter.class})
+        ProductRepositoryAdapter.class, ProductStockRepositoryAdapter.class, ProductStockMovementRepositoryAdapter.class,
+        IdempotencyRecordRepositoryAdapter.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class InventoryConsistencyTest {
 
@@ -68,7 +71,7 @@ class InventoryConsistencyTest {
     void inboundNewSkuRegistersProduct() {
         String sku = newSku();
 
-        inventoryService.inbound(new InboundItem(sku, "콜라", 10));
+        inventoryService.inbound(new InboundItem(sku, "콜라", 10), null);
 
         StockStatus status = inventoryService.getStockBySku(sku);
         assertThat(status.product().getName()).isEqualTo("콜라");
@@ -83,9 +86,9 @@ class InventoryConsistencyTest {
     @DisplayName("이미 등록된 SKU로 입고하면 수량을 더하고 상품명은 바꾸지 않는다")
     void inboundRegisteredSkuAddsQuantity() {
         String sku = newSku();
-        inventoryService.inbound(new InboundItem(sku, "콜라", 10));
+        inventoryService.inbound(new InboundItem(sku, "콜라", 10), null);
 
-        StockStatus result = inventoryService.inbound(new InboundItem(sku, "사이다", 5));
+        StockStatus result = inventoryService.inbound(new InboundItem(sku, "사이다", 5), null);
 
         assertThat(result.product().getName()).isEqualTo("콜라");
         assertThat(result.stock().getQuantity()).isEqualTo(15);
@@ -101,7 +104,7 @@ class InventoryConsistencyTest {
     void concurrentFirstInboundRegistersProductOnce() throws Exception {
         String sku = newSku();
 
-        runConcurrently(50, () -> inventoryService.inbound(new InboundItem(sku, "콜라", 1)));
+        runConcurrently(50, () -> inventoryService.inbound(new InboundItem(sku, "콜라", 1), null));
 
         // 상품이나 재고 행을 두 번 만들려 한 요청은 UNIQUE 제약에 걸려 실패한다. 50건이 모두 성공했으니 한 번씩만 만들었다
         StockStatus status = inventoryService.getStockBySku(sku);
@@ -115,9 +118,9 @@ class InventoryConsistencyTest {
     @DisplayName("등록된 상품에 입고가 동시에 들어와도 수량이 빠짐없이 늘어난다")
     void concurrentInboundAddsEveryQuantity() throws Exception {
         String sku = newSku();
-        inventoryService.inbound(new InboundItem(sku, "콜라", 100));
+        inventoryService.inbound(new InboundItem(sku, "콜라", 100), null);
 
-        runConcurrently(100, () -> inventoryService.inbound(new InboundItem(sku, "콜라", 1)));
+        runConcurrently(100, () -> inventoryService.inbound(new InboundItem(sku, "콜라", 1), null));
 
         StockStatus status = inventoryService.getStockBySku(sku);
         assertThat(status.stock().getQuantity()).isEqualTo(200);
@@ -131,9 +134,9 @@ class InventoryConsistencyTest {
     @DisplayName("출고가 동시에 들어와도 수량이 빠짐없이 줄어든다")
     void concurrentOutboundSubtractsEveryQuantity() throws Exception {
         String sku = newSku();
-        inventoryService.inbound(new InboundItem(sku, "콜라", 100));
+        inventoryService.inbound(new InboundItem(sku, "콜라", 100), null);
 
-        runConcurrently(100, () -> inventoryService.outbound(new OutboundItem(sku, 1)));
+        runConcurrently(100, () -> inventoryService.outbound(new OutboundItem(sku, 1), null));
 
         StockStatus status = inventoryService.getStockBySku(sku);
         assertThat(status.stock().getQuantity()).isZero();
@@ -148,7 +151,7 @@ class InventoryConsistencyTest {
     @DisplayName("재고보다 많은 출고가 동시에 들어오면 재고만큼만 출고하고 나머지는 거절한다")
     void concurrentOutboundBeyondStockRejectsRest() throws Exception {
         String sku = newSku();
-        inventoryService.inbound(new InboundItem(sku, "콜라", 10));
+        inventoryService.inbound(new InboundItem(sku, "콜라", 10), null);
 
         List<Boolean> outbounded = runConcurrently(30, () -> tryOutbound(sku));
 
@@ -169,19 +172,66 @@ class InventoryConsistencyTest {
     @DisplayName("다른 트랜잭션이 재고 행을 잠그고 놓지 않으면 잠금 대기를 포기하고 아무것도 반영하지 않는다")
     void outboundGivesUpWhenStockStaysLocked() throws Exception {
         String sku = newSku();
-        Long productId = inventoryService.inbound(new InboundItem(sku, "콜라", 10)).product().getId();
+        Long productId = inventoryService.inbound(new InboundItem(sku, "콜라", 10), null).product().getId();
 
         try (Connection lockHolder = dataSource.getConnection()) {
             lockHolder.setAutoCommit(false);
             lockStock(lockHolder, productId);
 
-            assertThatThrownBy(() -> inventoryService.outbound(new OutboundItem(sku, 1)))
+            assertThatThrownBy(() -> inventoryService.outbound(new OutboundItem(sku, 1), null))
                     .isInstanceOf(StockLockTimeoutException.class);
 
             lockHolder.rollback();
         }
         assertThat(inventoryService.getStockBySku(sku).stock().getQuantity()).isEqualTo(10);
         assertThat(movements(productId)).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("같은 요청 키로 다시 보낸 출고는 반영하지 않고 처음 결과를 돌려준다")
+    void outboundWithSameKeyIsAppliedOnce() {
+        String sku = newSku();
+        inventoryService.inbound(new InboundItem(sku, "콜라", 10), null);
+        String key = UUID.randomUUID().toString();
+        StockStatus first = inventoryService.outbound(new OutboundItem(sku, 3), key);
+
+        StockStatus retried = inventoryService.outbound(new OutboundItem(sku, 3), key);
+
+        assertThat(retried.stock().getQuantity()).isEqualTo(first.stock().getQuantity()).isEqualTo(7);
+        assertThat(inventoryService.getStockBySku(sku).stock().getQuantity()).isEqualTo(7);
+        assertThat(movements(first.product().getId()))
+                .filteredOn(movement -> movement.getType() == MovementType.OUTBOUND)
+                .hasSize(1);
+    }
+
+    @Test
+    @DisplayName("같은 요청 키로 입고가 동시에 들어와도 한 번만 반영되고 모두 같은 결과를 받는다")
+    void concurrentInboundWithSameKeyIsAppliedOnce() throws Exception {
+        String sku = newSku();
+        inventoryService.inbound(new InboundItem(sku, "콜라", 10), null);
+        String key = UUID.randomUUID().toString();
+
+        List<StockStatus> results = runConcurrently(10,
+                () -> inventoryService.inbound(new InboundItem(sku, "콜라", 5), key));
+
+        assertThat(results).extracting(result -> result.stock().getQuantity()).containsOnly(15);
+        StockStatus status = inventoryService.getStockBySku(sku);
+        assertThat(status.stock().getQuantity()).isEqualTo(15);
+        // 준비 입고 1건과 요청 키를 단 입고 1건만 남는다
+        assertThat(movements(status.product().getId())).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("이미 처리한 요청 키로 수량이 다른 출고가 오면 거절하고 아무것도 반영하지 않는다")
+    void outboundWithReusedKeyIsRejected() {
+        String sku = newSku();
+        inventoryService.inbound(new InboundItem(sku, "콜라", 10), null);
+        String key = UUID.randomUUID().toString();
+        inventoryService.outbound(new OutboundItem(sku, 3), key);
+
+        assertThatThrownBy(() -> inventoryService.outbound(new OutboundItem(sku, 4), key))
+                .isInstanceOf(IdempotencyKeyMismatchException.class);
+        assertThat(inventoryService.getStockBySku(sku).stock().getQuantity()).isEqualTo(7);
     }
 
     /**
@@ -212,7 +262,7 @@ class InventoryConsistencyTest {
      */
     private boolean tryOutbound(String sku) {
         try {
-            inventoryService.outbound(new OutboundItem(sku, 1));
+            inventoryService.outbound(new OutboundItem(sku, 1), null);
             return true;
         } catch (InsufficientStockException e) {
             return false;
