@@ -18,3 +18,22 @@ CREATE TABLE IF NOT EXISTS product_stock (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- 입출고 기록: 한 줄이 입고나 출고 한 번이다. 추가만 하고 고치지 않는다
+CREATE TABLE IF NOT EXISTS product_stock_movement (
+    id             BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    product_id     BIGINT      NOT NULL
+                   CONSTRAINT fk_product_stock_movement_product REFERENCES product (id),
+    type           VARCHAR(16) NOT NULL
+                   CONSTRAINT ck_product_stock_movement_type CHECK (type IN ('INBOUND', 'OUTBOUND')),
+    quantity       INTEGER     NOT NULL
+                   CONSTRAINT ck_product_stock_movement_quantity_positive CHECK (quantity > 0),
+    quantity_after INTEGER     NOT NULL
+                   CONSTRAINT ck_product_stock_movement_quantity_after_non_negative CHECK (quantity_after >= 0),
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 상품별 기록 조회용
+CREATE INDEX IF NOT EXISTS idx_product_stock_movement_product
+    ON product_stock_movement (product_id, created_at);

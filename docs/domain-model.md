@@ -99,15 +99,6 @@ _Value Object_
 - `product`: `Product` 상품
 - `stock`: `ProductStock` 그 상품의 현재 재고
 
-### 입고 결과 (InboundResult)
-
-_Value Object_
-
-#### 속성
-
-- `status`: `StockStatus` 입고를 마친 뒤의 재고 현황
-- `newlyRegistered`: 이번 입고로 상품을 새로 등록했는지 여부
-
 ### [입출고 기록 애그리거트]
 
 ### 입출고 기록 (ProductStockMovement)

@@ -29,6 +29,15 @@ public class ProductStockEntity extends BaseEntity {
     protected ProductStockEntity() {
     }
 
+    public ProductStockEntity(Long productId, int quantity) {
+        this.productId = productId;
+        this.quantity = quantity;
+    }
+
+    public void updateQuantity(int quantity) {
+        this.quantity = quantity;
+    }
+
     public Long getId() {
         return id;
     }

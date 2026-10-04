@@ -8,7 +8,6 @@
 | 재고 수량 | quantity | 지금 몇 개 있는지. 0 이상 |
 | 재고 현황 | StockStatus | 상품과 그 상품의 현재 재고를 함께 담은 조회 결과 |
 | 입고 | Inbound | 재고 수량을 늘리는 일. 등록되지 않은 SKU면 상품을 먼저 등록한다 |
-| 입고 결과 | InboundResult | 입고를 마친 뒤의 재고 현황과, 이번 입고로 상품을 새로 등록했는지 여부 |
 | 출고 | Outbound | 재고 수량을 줄이는 일. 재고보다 많이 뺄 수 없다 |
 | 입출고 기록 | ProductStockMovement | 입고나 출고 한 번의 기록. 추가만 하고 고치지 않는다 |
 | 입출고 유형 | MovementType | 기록이 입고(INBOUND)인지 출고(OUTBOUND)인지 |
