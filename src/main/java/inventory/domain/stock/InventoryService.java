@@ -62,6 +62,23 @@ public class InventoryService {
         return new StockStatus(product, stock);
     }
 
+    /**
+     * 재고 행을 잠근 뒤에 남은 수량을 확인한다. 그래서 동시에 들어온 출고들이 같은 수량을 보고 함께 통과하지 못한다.
+     * 모자라면 InsufficientStockException을 던지고, 수량도 기록도 바꾸지 않는다.
+     */
+    @Transactional
+    public StockStatus outbound(OutboundItem item) {
+        Product product = productFinder.getProductBySku(item.sku());
+        ProductStockEntity stockEntity = productStockJpaRepository.findByProductIdForUpdate(product.getId())
+                .orElseThrow(() -> stockMissing(product));
+        ProductStock stock = toProductStock(stockEntity).outbound(item.quantity());
+        stockEntity.updateQuantity(stock.getQuantity());
+        ProductStockMovement movement = ProductStockMovement.record(
+                product.getId(), MovementType.OUTBOUND, item.quantity(), stock.getQuantity());
+        productStockMovementJpaRepository.save(toEntity(movement));
+        return new StockStatus(product, stock);
+    }
+
     private StockStatus toStockStatus(Product product) {
         ProductStock stock = productStockJpaRepository.findByProductId(product.getId())
                 .map(InventoryService::toProductStock)

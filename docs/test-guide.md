@@ -196,7 +196,6 @@ class ProductJpaRepositoryTest {
 - `@Import`에는 테스트할 서비스와 그 서비스가 쓰는 컴포넌트만 적는다. 무엇에 의존하는지가 테스트 머리에 드러난다
 - `@DataJpaTest`는 테스트마다 트랜잭션을 걸고 롤백한다. `NOT_SUPPORTED`로 그 트랜잭션을 꺼야 서비스가 실제로 커밋하고, 다른 스레드가 그 결과를 본다
 - 롤백되지 않으므로 SKU는 테스트마다 새로 만들고(UUID), 검증은 그 상품의 데이터로 좁힌다
-- 서비스에 조회 경로가 없는 데이터(입출고 기록)는 `JdbcTemplate`으로 읽어 검증한다
 - 동시성 테스트
     - 작업 스레드를 `CountDownLatch`로 한꺼번에 출발시킨다
     - 결과는 `Future.get()`으로 받는다. 한 건이라도 예외가 나면 테스트가 실패한다
@@ -205,7 +204,7 @@ class ProductJpaRepositoryTest {
 
 ### 예시
 
-`movements()`는 입출고 기록을 `JdbcTemplate`으로 읽는 도우미다. 전체 코드는 `InventoryServiceDbTest`에 있다.
+`movements()`는 그 상품의 입출고 기록을 리포지토리로 읽는 도우미다. 전체 코드는 `InventoryServiceDbTest`에 있다.
 
 ```java
 @DataJpaTest
@@ -223,29 +222,31 @@ class InventoryServiceDbTest {
         String sku = "SKU-" + UUID.randomUUID();
         inventoryService.inbound(new InboundItem(sku, "콜라", 100));
 
-        inboundConcurrently(sku, 100);
+        runConcurrently(100, () -> inventoryService.inbound(new InboundItem(sku, "콜라", 1)));
 
         StockStatus status = inventoryService.getStockBySku(sku);
         assertThat(status.stock().getQuantity()).isEqualTo(200);
         assertThat(movements(status.product().getId()))
-                .extracting(MovementRow::quantityAfter)
+                .extracting(ProductStockMovementEntity::getQuantityAfter)
                 .containsExactlyInAnyOrderElementsOf(IntStream.rangeClosed(100, 200).boxed().toList());
     }
 
-    private void inboundConcurrently(String sku, int requests) throws Exception {
+    private <T> List<T> runConcurrently(int requests, Callable<T> task) throws Exception {
         CountDownLatch start = new CountDownLatch(1);
         try (ExecutorService executor = Executors.newFixedThreadPool(requests)) {
-            List<Future<StockStatus>> futures = new ArrayList<>();
+            List<Future<T>> futures = new ArrayList<>();
             for (int i = 0; i < requests; i++) {
                 futures.add(executor.submit(() -> {
                     start.await();
-                    return inventoryService.inbound(new InboundItem(sku, "콜라", 1));
+                    return task.call();
                 }));
             }
             start.countDown();
-            for (Future<StockStatus> future : futures) {
-                future.get();
+            List<T> results = new ArrayList<>();
+            for (Future<T> future : futures) {
+                results.add(future.get());
             }
+            return results;
         }
     }
 }

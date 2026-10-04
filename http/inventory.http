@@ -16,6 +16,24 @@ Content-Type: application/json
 
 {"sku": "SKU-001", "name": "콜라", "quantity": 0}
 
+### 출고: 재고 안에서 출고 → 200
+POST http://localhost:8080/api/v1/inventory/outbound
+Content-Type: application/json
+
+{"sku": "SKU-001", "quantity": 3}
+
+### 출고: 재고보다 많이 → 409 INSUFFICIENT_STOCK, 남은 수량(available)과 요청 수량(requested)
+POST http://localhost:8080/api/v1/inventory/outbound
+Content-Type: application/json
+
+{"sku": "SKU-001", "quantity": 1000}
+
+### 출고: 없는 SKU → 404 PRODUCT_NOT_FOUND
+POST http://localhost:8080/api/v1/inventory/outbound
+Content-Type: application/json
+
+{"sku": "SKU-404", "quantity": 1}
+
 ### 상품과 현재 재고 조회 (id)
 GET http://localhost:8080/api/v1/products/1
 

@@ -1,6 +1,7 @@
 package inventory.api.config.error;
 
 import inventory.domain.product.ProductNotFoundException;
+import inventory.domain.stock.InsufficientStockException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -26,6 +27,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     public ProblemDetail handleProductNotFound(ProductNotFoundException e) {
         log.warn("상품 없음: {}", e.getMessage());
         return problem(ErrorCode.PRODUCT_NOT_FOUND);
+    }
+
+    @ExceptionHandler(InsufficientStockException.class)
+    public ProblemDetail handleInsufficientStock(InsufficientStockException e) {
+        log.warn("재고 부족: {}", e.getMessage());
+        ProblemDetail problem = problem(ErrorCode.INSUFFICIENT_STOCK);
+        problem.setProperty("available", e.getAvailable());
+        problem.setProperty("requested", e.getRequested());
+        return problem;
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

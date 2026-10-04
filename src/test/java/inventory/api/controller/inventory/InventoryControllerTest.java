@@ -2,10 +2,14 @@ package inventory.api.controller.inventory;
 
 import inventory.WebContextTest;
 import inventory.api.controller.inventory.dto.InboundRequest;
+import inventory.api.controller.inventory.dto.OutboundRequest;
 import inventory.api.controller.product.dto.ProductStockResponse;
 import inventory.domain.product.Product;
+import inventory.domain.product.ProductNotFoundException;
 import inventory.domain.stock.InboundItem;
+import inventory.domain.stock.InsufficientStockException;
 import inventory.domain.stock.InventoryService;
+import inventory.domain.stock.OutboundItem;
 import inventory.domain.stock.ProductStock;
 import inventory.domain.stock.StockStatus;
 import org.junit.jupiter.api.DisplayName;
@@ -61,7 +65,7 @@ class InventoryControllerTest {
             "SKU-001, 콜라, -1",
             "SKU-001, 콜라, null"
     })
-    @DisplayName("요청 값이 잘못되면 서비스를 부르지 않고 400과 INVALID_REQUEST를 돌려준다")
+    @DisplayName("입고 요청 값이 잘못되면 서비스를 부르지 않고 400과 INVALID_REQUEST를 돌려준다")
     void inboundRejectsInvalidRequest(String sku, String name, Integer quantity) {
         MvcTestResult result = inbound(new InboundRequest(sku, name, quantity));
 
@@ -72,8 +76,76 @@ class InventoryControllerTest {
         verifyNoInteractions(inventoryService);
     }
 
+    @Test
+    @DisplayName("출고하면 200과 출고 뒤 재고를 돌려준다")
+    void outboundReturnsStock() {
+        when(inventoryService.outbound(new OutboundItem("SKU-001", 3)))
+                .thenReturn(stockStatus(1L, "SKU-001", "콜라", 7));
+
+        MvcTestResult result = outbound(new OutboundRequest("SKU-001", 3));
+
+        assertThat(result)
+                .hasStatusOk()
+                .bodyJson()
+                .convertTo(ProductStockResponse.class)
+                .isEqualTo(new ProductStockResponse(1L, "SKU-001", "콜라", 7));
+    }
+
+    @Test
+    @DisplayName("재고보다 많이 출고하면 409와 INSUFFICIENT_STOCK, 남은 수량과 요청 수량을 돌려준다")
+    void outboundInsufficientStockReturnsConflict() {
+        when(inventoryService.outbound(new OutboundItem("SKU-001", 5)))
+                .thenThrow(new InsufficientStockException(1L, 2, 5));
+
+        MvcTestResult result = outbound(new OutboundRequest("SKU-001", 5));
+
+        assertThat(result).hasStatus(HttpStatus.CONFLICT);
+        assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("INSUFFICIENT_STOCK");
+        assertThat(result).bodyJson().extractingPath("$.available").isEqualTo(2);
+        assertThat(result).bodyJson().extractingPath("$.requested").isEqualTo(5);
+    }
+
+    @Test
+    @DisplayName("없는 SKU를 출고하면 404와 PRODUCT_NOT_FOUND를 돌려준다")
+    void outboundUnknownSkuReturnsNotFound() {
+        when(inventoryService.outbound(new OutboundItem("SKU-404", 1)))
+                .thenThrow(ProductNotFoundException.bySku("SKU-404"));
+
+        MvcTestResult result = outbound(new OutboundRequest("SKU-404", 1));
+
+        assertThat(result)
+                .hasStatus(HttpStatus.NOT_FOUND)
+                .bodyJson()
+                .extractingPath("$.code").isEqualTo("PRODUCT_NOT_FOUND");
+    }
+
+    @ParameterizedTest
+    @CsvSource(nullValues = "null", value = {
+            "' ', 3",
+            "SKU-001, 0",
+            "SKU-001, -1",
+            "SKU-001, null"
+    })
+    @DisplayName("출고 요청 값이 잘못되면 서비스를 부르지 않고 400과 INVALID_REQUEST를 돌려준다")
+    void outboundRejectsInvalidRequest(String sku, Integer quantity) {
+        MvcTestResult result = outbound(new OutboundRequest(sku, quantity));
+
+        assertThat(result)
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson()
+                .extractingPath("$.code").isEqualTo("INVALID_REQUEST");
+        verifyNoInteractions(inventoryService);
+    }
+
     private MvcTestResult inbound(InboundRequest request) {
         return mvc.post().uri("/api/v1/inventory/inbound")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(jsonMapper.writeValueAsString(request))
+                .exchange();
+    }
+
+    private MvcTestResult outbound(OutboundRequest request) {
+        return mvc.post().uri("/api/v1/inventory/outbound")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(jsonMapper.writeValueAsString(request))
                 .exchange();
